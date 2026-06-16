@@ -160,8 +160,9 @@
                          :class="[
                             'flex-1 min-h-[95px] p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between relative overflow-hidden',
                             isStundeSelected(tag.datum, stundeNo) ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-100' : 
-                            (getSlotData(tag.datum, stundeNo)?.kurzeintrag ? 'bg-amber-50/70 border-amber-300 shadow-xs' : (hatStundeFarbe(tag.datum, stundeNo) ? 'border-gray-200 hover:shadow-xs' : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-xs'))
-                         ] dark:border-gray-700">
+                            (getSlotData(tag.datum, stundeNo)?.kurzeintrag ? 'bg-amber-50/70 border-amber-300 shadow-xs' : (hatStundeFarbe(tag.datum, stundeNo) ? 'border-gray-200 hover:shadow-xs' : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-xs')),
+                            'dark:border-gray-700'
+                         ]">
                         
                         <!-- Fach & Klasse -->
                         <div class="flex justify-between items-start z-10">
@@ -964,7 +965,7 @@
                                         
                                         <!-- Planseite aus Ordner löschen -->
                                         <button @click.stop="triggerDelete('planBib', plan.id)" 
-                                                :class="['px-1.5 py-0.5 rounded font-bold text-[10px] transition-all', isConfirming('planBib', plan.id) ? 'bg-yellow-400 text-gray-900' : 'text-red-500 bg-red-50 hover:bg-red-500 hover:text-white'] dark:bg-red-950">
+                                                :class="['px-1.5 py-0.5 rounded font-bold text-[10px] transition-all', isConfirming('planBib', plan.id) ? 'bg-yellow-400 text-gray-900' : 'text-red-500 bg-red-50 hover:bg-red-500 hover:text-white', 'dark:bg-red-950']">
                                             <span v-if="isConfirming('planBib', plan.id)">Ja</span>
                                             <span v-else>🗑|</span>
                                         </button>
@@ -1008,7 +1009,7 @@
                             </div>
                             
                             <button @click="bibEditMode = !bibEditMode" 
-                                    :class="['px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm', bibEditMode ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'] dark:hover:bg-gray-600">
+                                    :class="['px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm', bibEditMode ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700', 'dark:hover:bg-gray-600']">
                                 <span v-if="bibEditMode">✔️ Speichern & Fertig</span>
                                 <span v-else>✍️ Plan editieren</span>
                             </button>
