@@ -1261,35 +1261,32 @@
                         <p class="text-[11px] text-gray-400 leading-snug dark:text-gray-500">Eingetragene Zeiträume werden im Stundenplan automatisch rosa markiert und gestreift dargestellt.</p>
 
                         <!-- Liste bestehender Ferien -->
-                        <div class="space-y-2">
-                            <div v-for="(f, idx) in state.ferien" :key="idx" class="flex items-center gap-2 bg-pink-50 border border-pink-100 rounded-xl p-2.5 dark:bg-pink-950">
-                                <input type="text" v-model="f.name" placeholder="Name (z.B. Herbstferien)" class="flex-1 min-w-0 border border-gray-200 rounded-lg p-1.5 text-xs bg-white focus:outline-none dark:border-gray-700 dark:bg-gray-800">
-                                <input type="date" v-model="f.von" class="border border-gray-200 rounded-lg p-1.5 text-xs bg-white focus:outline-none dark:border-gray-700 dark:bg-gray-800">
-                                <span class="text-gray-400 text-xs dark:text-gray-500">bis</span>
-                                <input type="date" v-model="f.bis" class="border border-gray-200 rounded-lg p-1.5 text-xs bg-white focus:outline-none dark:border-gray-700 dark:bg-gray-800">
-                                <button @click="entferneFerien(idx)" class="px-2 py-1.5 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-lg text-[10px] font-bold transition shrink-0 dark:bg-red-950">🗑️</button>
-                            </div>
-                            <div v-if="state.ferien.length === 0" class="text-center py-6 text-gray-400 text-xs bg-white rounded-xl border border-dashed border-gray-200 dark:text-gray-500 dark:bg-gray-800 dark:border-gray-700">Noch keine Ferien hinterlegt.</div>
-                        </div>
+                     <div class="space-y-2">
+    <div v-for="(f, idx) in state.ferien" :key="idx" class="flex items-center gap-2 bg-pink-50 border border-pink-100 rounded-xl p-2.5 dark:bg-pink-950 dark:border-pink-900">
+        <input type="text" v-model="f.name" placeholder="Name" class="flex-1 min-w-0 border border-gray-200 rounded-lg p-1.5 text-xs bg-white text-gray-900 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+        <input type="date" v-model="f.von" class="border border-gray-200 rounded-lg p-1.5 text-xs bg-white text-gray-900 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+        <span class="text-gray-400 text-xs dark:text-gray-500">bis</span>
+        <input type="date" v-model="f.bis" class="border border-gray-200 rounded-lg p-1.5 text-xs bg-white text-gray-900 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+        <button @click="entferneFerien(idx)" class="px-2 py-1.5 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-lg text-[10px] font-bold transition shrink-0 dark:bg-red-950">🗑️</button>
+    </div>
+</div>
 
                         <!-- Neue Ferien hinzufügen -->
                         <div class="pt-3 border-t border-gray-100 flex items-end gap-2 dark:border-gray-700">
-                            <div class="flex-1 min-w-0">
-                                <label class="block text-[9px] text-gray-400 font-bold uppercase mb-0.5 dark:text-gray-500">Name</label>
-                                <input type="text" v-model="neueFerien.name" placeholder="z.B. Sommerferien" class="w-full border border-gray-200 rounded-lg p-1.5 text-xs bg-stone-50 focus:outline-none dark:border-gray-700 dark:bg-gray-900">
-                            </div>
-                            <div>
-                                <label class="block text-[9px] text-gray-400 font-bold uppercase mb-0.5 dark:text-gray-500">Von</label>
-                                <input type="date" v-model="neueFerien.von" class="border border-gray-200 rounded-lg p-1.5 text-xs bg-stone-50 focus:outline-none dark:border-gray-700 dark:bg-gray-900">
-                            </div>
-                            <div>
-                                <label class="block text-[9px] text-gray-400 font-bold uppercase mb-0.5 dark:text-gray-500">Bis</label>
-                                <input type="date" v-model="neueFerien.bis" class="border border-gray-200 rounded-lg p-1.5 text-xs bg-stone-50 focus:outline-none dark:border-gray-700 dark:bg-gray-900">
-                            </div>
-                            <button @click="fuegeFerienHinzu" class="px-3 py-1.5 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-xs font-bold transition shrink-0">+ Hinzufügen</button>
-                        </div>
-                    </div>
-                </div>
+    <div class="flex-1 min-w-0">
+        <label class="block text-[9px] text-gray-400 font-bold uppercase mb-0.5 dark:text-gray-500">Name</label>
+        <input type="text" v-model="neueFerien.name" placeholder="z.B. Sommerferien" class="w-full border border-gray-200 rounded-lg p-1.5 text-xs bg-stone-50 text-gray-900 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+    </div>
+    <div>
+        <label class="block text-[9px] text-gray-400 font-bold uppercase mb-0.5 dark:text-gray-500">Von</label>
+        <input type="date" v-model="neueFerien.von" class="border border-gray-200 rounded-lg p-1.5 text-xs bg-stone-50 text-gray-900 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+    </div>
+    <div>
+        <label class="block text-[9px] text-gray-400 font-bold uppercase mb-0.5 dark:text-gray-500">Bis</label>
+        <input type="date" v-model="neueFerien.bis" class="border border-gray-200 rounded-lg p-1.5 text-xs bg-stone-50 text-gray-900 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+    </div>
+    <button @click="fuegeFerienHinzu" class="px-3 py-1.5 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-xs font-bold transition shrink-0">+ Hinzufügen</button>
+</div>
 
                 <!-- TAB B: TAGESFARBEN-ÜBERSICHT -->
                 <div v-if="settingsTab === 'farben'" class="space-y-4 animate-in fade-in duration-100">
