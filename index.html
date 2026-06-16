@@ -1,0 +1,2939 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Mein Schulplaner</title>
+
+    <!-- ========================================================================= -->
+    <!-- PWA: MANIFEST & THEME                                                     -->
+    <!-- ========================================================================= -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb">
+
+    <!-- ========================================================================= -->
+    <!-- PWA: iOS-SPEZIFISCHE META-TAGS                                            -->
+    <!-- Diese Tags sorgen dafür, dass die App nach "Zum Home-Bildschirm           -->
+    <!-- hinzufügen" im Vollbild (ohne Safari-UI) startet und ein eigenes          -->
+    <!-- Icon/Statusleisten-Design bekommt.                                        -->
+    <!-- ========================================================================= -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Schulplaner">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512.png">
+
+    <!-- ========================================================================= -->
+    <!-- LOKALE ASSETS (offline-fähig - kein CDN nötig)                            -->
+    <!-- ========================================================================= -->
+    <script src="js/vue.global.js"></script>
+    <link href="css/tailwind.css" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f2f2f7;
+            -webkit-tap-highlight-color: transparent;
+            transition: background-color 0.2s ease;
+            /* Safe-Area-Insets: verhindert Überlappung mit Notch/Home-Indicator
+               im Standalone-Modus (Vollbild ohne Browser-UI) */
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+        }
+        html.dark body {
+            background-color: #0f1115;
+        }
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background-color: #c1c1c1;
+            border-radius: 10px;
+        }
+        html.dark .custom-scroll::-webkit-scrollbar-thumb {
+            background-color: #4b5563;
+        }
+        /* Ferien-Streifenmuster für Tageskopf */
+        .ferien-stripes {
+            background-image: repeating-linear-gradient(
+                45deg,
+                rgba(255,255,255,0.35) 0px,
+                rgba(255,255,255,0.35) 6px,
+                transparent 6px,
+                transparent 12px
+            );
+        }
+        /* Farbwähler-Kreis */
+        .color-dot {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid rgba(0,0,0,0.08);
+            transition: transform 0.1s ease;
+        }
+        .color-dot:hover {
+            transform: scale(1.15);
+        }
+        .color-dot.active {
+            border: 2px solid #1f2937;
+        }
+    </style>
+</head>
+<body class="overflow-hidden select-none">
+
+<div id="app" class="h-screen w-screen flex flex-col justify-between">
+    
+    <!-- ========================================================================= -->
+    <!-- HEADER                                                                    -->
+    <!-- ========================================================================= -->
+    <header class="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center shrink-0 dark:bg-gray-800 dark:border-gray-700">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Mein Schulplaner</h1>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Schuljahr {{ schuljahrLabel }} • iPad Core (Capacitor Hybrid-Modus aktiv)</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <!-- Wochen-Navigation -->
+            <div class="flex items-center gap-1 bg-gray-100 rounded-xl p-1 dark:bg-gray-700">
+                <button @click="wocheVorOderZurueck(-7)" class="p-1.5 hover:bg-white rounded-lg transition dark:hover:bg-gray-600" title="Vorherige Woche">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <button @click="springeZuHeute" class="px-3 py-1 bg-white rounded-lg text-xs font-semibold text-blue-600 shadow-xs whitespace-nowrap dark:bg-gray-800" title="Zur aktuellen Woche springen">
+                    KW {{ getKalenderwoche(aktuelleWoche) }} • {{ formatTagDatum(aktuelleWoche) }}–{{ formatTagDatum(addDays(aktuelleWoche, 4)) }}
+                </button>
+                <button @click="wocheVorOderZurueck(7)" class="p-1.5 hover:bg-white rounded-lg transition dark:hover:bg-gray-600" title="Nächste Woche">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                </button>
+            </div>
+
+            <!-- Datensicherung -->
+            <button @click="showBackupModal = true" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition dark:bg-emerald-950">
+                <span>💾 Datensicherung</span>
+            </button>
+            <span v-if="ferienDieserWoche" class="px-3 py-1 bg-pink-100 text-pink-700 rounded-full text-xs font-semibold">
+                🏖️ {{ ferienDieserWoche }}
+            </span>
+            <button class="p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition dark:bg-gray-700 dark:hover:bg-gray-600" @click="showInfoModal = true" title="Schuljahr, Ferien & Stundenplan einrichten">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            </button>
+        </div>
+    </header>
+    <!-- ========================================================================= -->
+    <!-- MAIN WORKSPACE                                                            -->
+    <!-- ========================================================================= -->
+    <main class="flex-1 flex overflow-hidden relative">
+        
+        <!-- WOCHEN-STUNDENPLAN GRID -->
+        <div class="flex-1 p-6 overflow-y-auto custom-scroll transition-all duration-300" :class="{'mr-96': state.ui.showSidebar}">
+            <div class="grid grid-cols-6 gap-3 h-full min-w-[700px]">
+                
+                <!-- Zeilen-Header (Stunden & Zeiten) -->
+                <div class="flex flex-col gap-3 justify-end pb-2">
+                    <div class="h-10"></div>
+                    <div v-for="stundeNo in 6" :key="stundeNo" class="flex-1 min-h-[95px] flex flex-col justify-center text-right pr-3 border-r border-gray-200 dark:border-gray-700">
+                        <span class="text-sm font-bold text-gray-800 dark:text-gray-100">{{ stundeNo }}. Stunde</span>
+                        <span class="text-[10px] text-gray-400 dark:text-gray-500">{{ getStundenZeit(stundeNo) }}</span>
+                    </div>
+                </div>
+
+                <!-- Wochentage Spalten -->
+                <div v-for="tag in wochenTage" :key="tag.datum" class="flex flex-col gap-3 flex-1">
+                    <!-- Tages-Kopfzeile -->
+                    <div class="h-10 flex flex-col justify-center items-center rounded-lg shadow-xs relative overflow-hidden"
+                         :class="[tag.heute ? 'ring-2 ring-blue-400' : '', tag.ferien ? 'ferien-stripes' : '']"
+                         :style="getTagFarbeStyle(tag)">
+                        <span class="text-xs font-semibold z-10" :class="getTagTextClass(tag)">{{ tag.name }}</span>
+                        <span class="text-[10px] z-10" :class="getTagTextClass(tag, true)">{{ tag.datum_anzeige }}<template v-if="tag.ferien"> • {{ tag.ferien }}</template></span>
+                    </div>
+
+                    <!-- Stunden-Zellen (Slots) -->
+                    <div v-for="stundeNo in 6" :key="stundeNo" 
+                         @click="oeffneStunde(tag.datum, stundeNo)"
+                         :style="getStundeFarbeStyle(tag.datum, stundeNo)"
+                         :class="[
+                            'flex-1 min-h-[95px] p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between relative overflow-hidden',
+                            isStundeSelected(tag.datum, stundeNo) ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-100' : 
+                            (getSlotData(tag.datum, stundeNo)?.kurzeintrag ? 'bg-amber-50/70 border-amber-300 shadow-xs' : (hatStundeFarbe(tag.datum, stundeNo) ? 'border-gray-200 hover:shadow-xs' : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-xs'))
+                         ] dark:border-gray-700">
+                        
+                        <!-- Fach & Klasse -->
+                        <div class="flex justify-between items-start z-10">
+                            <span class="text-xs font-bold text-gray-600 dark:text-gray-300">{{ getSlotFach(tag.datum, stundeNo) }}</span>
+                            <span class="text-[9px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-semibold dark:bg-gray-700 dark:text-gray-300" v-if="getSlotKlasse(tag.datum, stundeNo)">
+                                {{ getSlotKlasse(tag.datum, stundeNo) }}
+                            </span>
+                        </div>
+
+                        <!-- Termine / Kurzeinträge (Direkt sichtbar!) -->
+                        <div class="flex-1 flex flex-col justify-end py-1 z-10">
+                            <div v-if="getSlotData(tag.datum, stundeNo)?.kurzeintrag" class="bg-amber-100 border-l-4 border-amber-500 p-1.5 rounded text-[10px] text-amber-900 font-medium leading-snug shadow-xs">
+                                📌 {{ getSlotData(tag.datum, stundeNo).kurzeintrag }}
+                            </div>
+                            <!-- Planungsverknüpfungs-Titel -->
+                            <div v-if="getSlotData(tag.datum, stundeNo)?.planungLink" class="text-[10px] text-blue-600 font-semibold truncate mt-1 flex items-center gap-1">
+                                🔗 {{ getSlotData(tag.datum, stundeNo).planungLink }}
+                            </div>
+                        </div>
+
+                        <!-- Icons / Feedback im Grid -->
+                        <div class="flex justify-between items-center text-[9px] text-gray-400 z-10 mt-1 dark:text-gray-500">
+                            <div>
+                                <span v-if="getSlotData(tag.datum, stundeNo)?.freitext" class="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md text-[10px] font-bold shadow-xs">
+                                    📝 Notiz
+                                </span>
+                            </div>
+                            <span v-if="getSchuelerNotizenAnzahl(tag.datum, stundeNo) > 0" class="bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded-full text-[9px] font-bold shadow-xs">
+                                👤 {{ getSchuelerNotizenAnzahl(tag.datum, stundeNo) }}
+                            </span>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- SEITENLEISTE (SIDEBAR) -->
+        <transition enter-active-class="transform transition ease-in-out duration-300" enter-from-class="translate-x-full" enter-to-class="translate-x-0" leave-active-class="transform transition ease-in-out duration-300" leave-from-class="translate-x-0" leave-to-class="translate-x-full">
+            <div v-if="state.ui.showSidebar" class="absolute right-0 top-0 bottom-0 w-96 bg-white border-l border-gray-200 shadow-2xl z-20 flex flex-col justify-between dark:bg-gray-800 dark:border-gray-700">
+                
+                <!-- Sidebar Kopfzeile -->
+                <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 dark:border-gray-700 dark:bg-gray-800">
+                    <div>
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-blue-600">Details zur Stunde</span>
+                        <h3 class="text-base font-bold text-gray-800 dark:text-gray-100">{{ formatTagLangmitDatum(state.ui.activeSlot.datum) }}, {{ state.ui.activeSlot.stunde }}. Stunde</h3>
+                        <p class="text-xs text-gray-500 dark:text-gray-400" v-if="activeSlotData">{{ activeSlotData.fach }} • Klasse {{ activeSlotData.klasse }}</p>
+                    </div>
+                    <button class="p-1.5 hover:bg-gray-200 rounded-full text-gray-400 hover:text-gray-600 transition dark:hover:bg-gray-600 dark:text-gray-500" @click="state.ui.showSidebar = false">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                <!-- Sidebar Inhalt -->
+                <div class="flex-1 overflow-y-auto p-4 space-y-4 custom-scroll">
+
+                    <!-- FARB-MODUL: Tag & Stunde einfärben -->
+                    <div class="bg-white rounded-xl p-3 border border-gray-200 space-y-3 dark:bg-gray-800 dark:border-gray-700">
+                        <div>
+                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5 dark:text-gray-500">🎨 Tag einfärben ({{ state.ui.activeSlot.datum }})</span>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <div v-for="farbe in farbpalette" :key="'tag_'+farbe.wert"
+                                     class="color-dot" :class="{'active': getTagFarbe(state.ui.activeSlot.datum) === farbe.wert}"
+                                     :style="{ backgroundColor: farbe.wert || '#ffffff', border: !farbe.wert ? '2px dashed #d1d5db' : undefined }"
+                                     :title="farbe.name"
+                                     @click="setzeTagFarbe(state.ui.activeSlot.datum, farbe.wert)">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pt-2 border-t border-gray-100 dark:border-gray-700">
+                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5 dark:text-gray-500">🎨 Diese Stunde einfärben</span>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <div v-for="farbe in farbpalette" :key="'stunde_'+farbe.wert"
+                                     class="color-dot" :class="{'active': getStundeFarbe(state.ui.activeSlot.datum, state.ui.activeSlot.stunde) === farbe.wert}"
+                                     :style="{ backgroundColor: farbe.wert || '#ffffff', border: !farbe.wert ? '2px dashed #d1d5db' : undefined }"
+                                     :title="farbe.name"
+                                     @click="setzeStundeFarbe(state.ui.activeSlot.datum, state.ui.activeSlot.stunde, farbe.wert)">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div v-if="!hatAktiveInhalte" class="text-center py-8 px-4">
+                        <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3 dark:bg-gray-800">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                        </div>
+                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Diese Stunde ist noch leer.</p>
+                        <p class="text-xs text-gray-400 mt-1 dark:text-gray-500">Füge über die Buttons unten gewünschte Module hinzu.</p>
+                    </div>
+
+                    <!-- MODULE 1: Termin / Kurzeintrag -->
+                    <div v-if="state.ui.activeFields.includes('kurzeintrag')" class="bg-amber-50/50 rounded-xl p-3 border border-amber-100 relative">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-bold text-amber-800 uppercase">📌 Termin / Kurzeintrag</span>
+                            <button @click="removeField('kurzeintrag')" class="text-gray-400 hover:text-red-500 text-xs font-bold dark:text-gray-500">Löschen</button>
+                        </div>
+                        <input type="text" v-model="activeSlotData.kurzeintrag" placeholder="z.B. Klassenarbeit ankündigen..." class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-200 dark:bg-gray-800 dark:border-gray-700">
+                    </div>
+
+                    <!-- MODULE 2: Unterrichtsplanung verknüpfen -->
+                    <div v-if="state.ui.activeFields.includes('planung')" class="bg-blue-50/50 rounded-xl p-3 border border-blue-100 relative">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-bold text-blue-600 uppercase">🔗 Verknüpfte Planung</span>
+                            <button @click="removeField('planung')" class="text-gray-400 hover:text-red-500 text-xs font-bold dark:text-gray-500">Löschen</button>
+                        </div>
+                        <div v-if="!activeSlotData.planungId" class="text-center py-3 bg-white border border-dashed border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-600">
+                            <button @click="showLibrarySelection = true" class="text-xs text-blue-600 font-semibold hover:underline">+ Planung wählen</button>
+                        </div>
+                        <div v-else class="bg-white border border-gray-200 rounded-lg p-3 space-y-2 dark:bg-gray-800 dark:border-gray-700">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <span class="text-[10px] text-gray-400 block dark:text-gray-500">Aus Ordner: {{ activeSlotData.planungOrdner }}</span>
+                                    <span class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ activeSlotData.planungLink }}</span>
+                                </div>
+                                <button @click="showLibrarySelection = true" class="text-xs text-blue-500 hover:text-blue-700 font-medium">Wechseln</button>
+                            </div>
+                            <!-- Smarter Direktlink in den Editor! -->
+                            <button @click="oeffnePlanungDirektInBib(activeSlotData.planungId)" class="w-full py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 rounded-lg text-xs font-bold transition dark:bg-blue-950 dark:hover:bg-blue-900">
+                                📚 Planung direkt im Editor öffnen
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- MODULE 3: Freie Unterrichts-Notiz -->
+                    <div v-if="state.ui.activeFields.includes('notiz')" class="bg-gray-50 rounded-xl p-3 border border-gray-100 relative dark:bg-gray-800 dark:border-gray-700">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-bold text-gray-500 uppercase dark:text-gray-400">✍️ Unterrichts-Notizen (📝)</span>
+                            <button @click="removeField('notiz')" class="text-gray-400 hover:text-red-500 text-xs font-bold dark:text-gray-500">Löschen</button>
+                        </div>
+                        <textarea v-model="activeSlotData.freitext" rows="4" placeholder="Schreib frei auf..." class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none custom-scroll dark:bg-gray-800 dark:border-gray-700"></textarea>
+                    </div>
+
+                    <!-- MODULE 4: Skizzenfeld (Vektorbasiertes SVG für Pencil) -->
+                    <div v-if="state.ui.activeFields.includes('sketch')" class="bg-yellow-50/50 rounded-xl p-3 border border-yellow-100 relative">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-bold text-amber-700 uppercase">🎨 Freihand-Skizze (Pencil)</span>
+                            <div class="flex gap-2">
+                                <button @click="clearCanvas" class="text-xs text-gray-400 hover:text-gray-600 font-bold dark:text-gray-500">Leeren</button>
+                                <button @click="removeField('sketch')" class="text-gray-400 hover:text-red-500 text-xs font-bold dark:text-gray-500">Löschen</button>
+                            </div>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-inner dark:bg-gray-800 dark:border-gray-700">
+                            <svg viewBox="0 0 300 160" preserveAspectRatio="none"
+                                 class="w-full h-40 cursor-crosshair block touch-none bg-stone-50 dark:bg-gray-900"
+                                 @mousedown="startDraw" @mousemove="moveDraw" @mouseup="endDraw" @mouseleave="endDraw"
+                                 @touchstart.prevent="startDraw" @touchmove.prevent="moveDraw" @touchend.prevent="endDraw">
+                                <path v-for="(p, idx) in (activeSlotData.sketches || [])" :key="idx" :d="p"
+                                      fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path v-if="currentPathStr" :d="currentPathStr"
+                                      fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <!-- Kompakte Schülerbemerkungen -->
+                    <div v-if="getSchuelerNotizenAnzahl(state.ui.activeSlot.datum, state.ui.activeSlot.stunde) > 0" class="pt-2 border-t border-gray-100 dark:border-gray-700">
+                        <button @click="state.ui.showCompactNotesPanel = !state.ui.showCompactNotesPanel" class="w-full bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded-xl p-3 flex justify-between items-center transition dark:bg-amber-950 dark:hover:bg-amber-900">
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg">👤</span>
+                                <div class="text-left">
+                                    <span class="text-xs font-bold block uppercase">Schülerbemerkungen</span>
+                                    <span class="text-[10px] text-amber-600">{{ getSchuelerNotizenAnzahl(state.ui.activeSlot.datum, state.ui.activeSlot.stunde) }} Einträge</span>
+                                </div>
+                            </div>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-600 transition-transform duration-200" :class="{'rotate-180': state.ui.showCompactNotesPanel}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                        </button>
+
+                        <transition enter-active-class="transition ease-out duration-150" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition ease-in duration-100" leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-2">
+                            <div v-if="state.ui.showCompactNotesPanel" class="mt-2 space-y-2 bg-stone-50 p-2 rounded-xl border border-stone-200 dark:bg-gray-900">
+                                <div v-for="notiz in getSchuelerNotizen(state.ui.activeSlot.datum, state.ui.activeSlot.stunde)" :key="notiz.id" class="bg-white border border-gray-200 rounded-lg p-2.5 text-xs shadow-xs dark:bg-gray-800 dark:border-gray-700">
+                                    <div class="flex justify-between font-bold text-gray-700 mb-1 dark:text-gray-200">
+                                        <span class="text-blue-600">{{ notiz.schuelerName }}</span>
+                                        <span class="text-gray-400 text-[10px] dark:text-gray-500">{{ notiz.datum }}</span>
+                                    </div>
+                                    <p class="text-gray-600 leading-relaxed dark:text-gray-300">{{ notiz.text }}</p>
+                                </div>
+                            </div>
+                        </transition>
+                    </div>
+
+                </div>
+
+                <!-- Sidebar Footer -->
+                <div class="p-4 border-t border-gray-100 bg-gray-50 flex flex-col gap-2 dark:border-gray-700 dark:bg-gray-800">
+                    <div class="grid grid-cols-2 gap-2">
+                        <button v-if="!state.ui.activeFields.includes('kurzeintrag')" @click="addField('kurzeintrag')" class="py-2.5 px-3 bg-white hover:bg-gray-100 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 flex items-center justify-center gap-1.5 transition dark:bg-gray-800 dark:hover:bg-gray-700 dark:border-gray-700 dark:text-gray-200">
+                            <span>📌 + Termin</span>
+                        </button>
+                        <button v-if="!state.ui.activeFields.includes('planung')" @click="addField('planung')" class="py-2.5 px-3 bg-white hover:bg-gray-100 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 flex items-center justify-center gap-1.5 transition dark:bg-gray-800 dark:hover:bg-gray-700 dark:border-gray-700 dark:text-gray-200">
+                            <span>🔗 + Planung</span>
+                        </button>
+                        <button v-if="!state.ui.activeFields.includes('notiz')" @click="addField('notiz')" class="py-2.5 px-3 bg-white hover:bg-gray-100 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 flex items-center justify-center gap-1.5 transition dark:bg-gray-800 dark:hover:bg-gray-700 dark:border-gray-700 dark:text-gray-200">
+                            <span>✍️ + Notiz</span>
+                        </button>
+                        <button v-if="!state.ui.activeFields.includes('sketch')" @click="addField('sketch')" class="py-2.5 px-3 bg-white hover:bg-gray-100 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 flex items-center justify-center gap-1.5 transition dark:bg-gray-800 dark:hover:bg-gray-700 dark:border-gray-700 dark:text-gray-200">
+                            <span>🎨 + Skizze</span>
+                        </button>
+                    </div>
+
+                    <!-- Schülerbemerkung schnell hinzufügen -->
+                    <button @click="oeffneSchuelerNotizModal" class="mt-2 w-full py-3.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                        Schülernotiz erheben
+                    </button>
+                </div>
+
+            </div>
+        </transition>
+
+    </main>
+    <!-- FLOATING FOOTER (NAVIGATION) -->
+    <footer class="bg-white border-t border-gray-200 px-6 py-3 flex justify-between items-center shrink-0 dark:bg-gray-800 dark:border-gray-700">
+        <span class="text-xs text-gray-400 dark:text-gray-500">Lehrer-Assistent Core • Hybrid Active</span>
+        <div class="flex gap-2">
+            <button class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition">
+                <span>Stundenplan</span>
+            </button>
+            <button class="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition dark:bg-indigo-950 dark:hover:bg-indigo-900" @click="showArchivModal = true">
+                <span>📝 Notiz-Archiv</span>
+            </button>
+            <button class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200" @click="oeffneBibliothekZentral">
+                <span>📚 Planungsbibliothek</span>
+            </button>
+            <button class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200" @click="showSchuelerModal = true">
+                <span>👥 Schülerkartei</span>
+            </button>
+        </div>
+    </footer>
+
+    <!-- ========================================================================= -->
+    <!-- POPUPS & MODALS                                                           -->
+    <!-- ========================================================================= -->
+
+    <!-- POPUP 1: SCHÜLERNOTIZ MODAL (SCHNELLZUGRIFF) -->
+    <div v-if="showSchuelerNotizModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200 dark:bg-gray-800">
+            <div class="bg-amber-500 px-4 py-3 flex justify-between items-center text-white">
+                <span class="font-bold text-sm">Schülernotiz erfassen</span>
+                <button @click="showSchuelerNotizModal = false" class="text-white hover:text-amber-100 text-xs font-medium">Abbrechen</button>
+            </div>
+            <div class="p-4 space-y-3">
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 dark:text-gray-500">Schüler auswählen</label>
+                    <select v-model="neueNotiz.schuelerId" class="w-full border border-gray-200 rounded-lg p-2 text-sm focus:outline-none dark:border-gray-700">
+                        <option value="" disabled>Bitte wählen...</option>
+                        <option v-for="schueler in state.schueler.schuelerListe" :key="schueler.id" :value="schueler.id">
+                            {{ schueler.name }} ({{ schueler.klasse }})
+                        </option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 dark:text-gray-500">Beobachtung / Verhalten</label>
+                    <textarea v-model="neueNotiz.text" rows="3" placeholder="z.B. Hat Hausaufgabe vergessen, stört..." class="w-full border border-gray-200 rounded-lg p-2 text-sm resize-none focus:outline-none dark:border-gray-700"></textarea>
+                </div>
+                <div class="flex gap-2">
+                    <button v-for="tag in ['#Hausaufgaben', '#Mitarbeit', '#Verhalten']" :key="tag" @click="neueNotiz.text += ' ' + tag" class="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded text-[10px] font-semibold transition dark:bg-amber-950 dark:hover:bg-amber-900">{{ tag }}</button>
+                </div>
+                <button @click="speichereSchuelerNotiz" class="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs transition mt-2">In Kartei sichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- POPUP 2: DATENSICHERUNG (EXPORT & IMPORT) -->
+    <div v-if="showBackupModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200 dark:bg-gray-800">
+            <div class="bg-emerald-600 text-white px-5 py-4 flex justify-between items-center shrink-0">
+                <div>
+                    <h3 class="text-base font-bold">💾 Lokale Datensicherung (Backup)</h3>
+                    <p class="text-xs text-emerald-100">Sichere deine Pläne unabhängig von Safari</p>
+                </div>
+                <button @click="showBackupModal = false" class="text-emerald-100 hover:text-white transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            
+            <div class="p-6 space-y-6">
+                <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 leading-relaxed dark:bg-amber-950">
+                    <strong>⚠️ Wichtiger iPad-Hinweis:</strong> Safari bereinigt ungenutzte Webseitendaten nach einigen Tagen Inaktivität selbsttätig. Sorge mit Backups vor oder installiere diese App via Capacitor, um dieses Problem für immer loszuwerden!
+                </div>
+
+                <!-- Exportieren Sektion -->
+                <div class="space-y-2">
+                    <h4 class="text-sm font-bold text-gray-800 dark:text-gray-100">1. Daten sichern (Export)</h4>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Erstellt eine Sicherungsdatei, die du auf deinem iPad oder PC speichern kannst.</p>
+                    <button @click="exportData" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition">
+                        <span>📥 Backup-Datei jetzt exportieren</span>
+                    </button>
+                </div>
+
+                <hr class="border-gray-200 dark:border-gray-700">
+
+                <!-- Importieren Sektion -->
+                <div class="space-y-2">
+                    <h4 class="text-sm font-bold text-gray-800 dark:text-gray-100">2. Daten wiederherstellen (Import)</h4>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Wähle eine Sicherungsdatei aus, um alle Notizen wieder einzuspielen.</p>
+                    
+                    <div class="relative">
+                        <input type="file" 
+                               accept=".json" 
+                               @change="importData" 
+                               class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                        <div class="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border border-gray-300 border-dashed transition dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 dark:border-gray-600">
+                            <span>📂 Backup-Datei laden</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="backupMessage" class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 text-center font-semibold dark:bg-blue-950">
+                    {{ backupMessage }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- POPUP 3: GANZER SCHÜLERBEREICH (Echte Digitale iPad Schüler-Akte) -->
+    <div v-if="showSchuelerModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200 dark:bg-gray-800">
+            <div class="bg-gray-800 text-white px-5 py-4 flex justify-between items-center border-b">
+                <div>
+                    <h3 class="text-base font-bold">👥 Schülerverwaltung & Digitale Akte</h3>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">Personalbogen, Verhaltensprotokolle, Notenbuch und Förderpläne</p>
+                </div>
+                <button @click="showSchuelerModal = false" class="text-gray-400 hover:text-white transition dark:text-gray-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            
+            <div class="flex-1 flex overflow-hidden">
+                <!-- Linke Spalte: Schülerliste & Hinzufügen -->
+                <div class="w-1/3 border-r border-gray-100 overflow-y-auto p-3 space-y-3 bg-gray-50 custom-scroll flex flex-col justify-between dark:border-gray-700 dark:bg-gray-800">
+                    <div class="space-y-1 flex-1">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1 dark:text-gray-500">Schülerliste</span>
+                        <div v-for="schueler in state.schueler.schuelerListe" :key="schueler.id" 
+                             :class="['w-full p-2.5 rounded-lg text-xs font-semibold transition flex justify-between items-center cursor-pointer', selectedSchuelerId === schueler.id ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-200 dark:text-gray-200 dark:hover:bg-gray-700']"
+                             @click="selectedSchuelerId = schueler.id">
+                            <span class="truncate pr-2">{{ schueler.name }} ({{ schueler.klasse }})</span>
+                            
+                            <!-- Sicherheits-Löschen für Schüler -->
+                            <button @click.stop="triggerDelete('schueler', schueler.id)" 
+                                    :class="['px-1.5 py-0.5 rounded text-[10px] transition-all font-bold', isConfirming('schueler', schueler.id) ? 'bg-yellow-400 text-gray-900' : 'bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white']">
+                                <span v-if="isConfirming('schueler', schueler.id)">Sicher?</span>
+                                <span v-else>🗑️</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Inline Schüler hinzufügen (Keine nervigen Pop-ups!) -->
+                    <div class="pt-3 border-t border-gray-200 space-y-2 dark:border-gray-700">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block dark:text-gray-500">Neu aufnehmen</span>
+                        <div class="space-y-1.5">
+                            <input type="text" v-model="neuerSchuelerName" placeholder="Name (z.B. Tim Becker)" class="w-full border border-gray-200 rounded bg-white p-1.5 text-xs focus:outline-none dark:border-gray-700 dark:bg-gray-800">
+                            <input type="text" v-model="neuerSchuelerKlasse" placeholder="Klasse (z.B. 4b)" class="w-full border border-gray-200 rounded bg-white p-1.5 text-xs focus:outline-none dark:border-gray-700 dark:bg-gray-800">
+                            <button @click="fuegeSchuelerHinzu" class="w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold text-xs transition">+ Hinzufügen</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rechte Spalte: Karteikartenverlauf mit tabs -->
+                <div class="w-2/3 flex flex-col justify-between bg-stone-50 dark:bg-gray-900" v-if="getSelectedSchueler">
+                    
+                    <!-- Student Header / Tab-Navigation -->
+                    <div class="p-4 bg-white border-b border-gray-200 flex flex-col gap-3 dark:bg-gray-800 dark:border-gray-700">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ getSelectedSchueler.name }}</h4>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Klasse {{ getSelectedSchueler.klasse }} • Digitale Schülerakte</p>
+                            </div>
+                        </div>
+
+                        <!-- iOS Segmented Control Tab-Navigation -->
+                        <div class="bg-gray-100 p-1 rounded-xl flex gap-1 text-xs dark:bg-gray-700">
+                            <button @click="state.ui.schuelerTab = 'personal'" 
+                                    :class="['flex-1 py-2 text-center rounded-lg font-bold transition', state.ui.schuelerTab === 'personal' ? 'bg-white text-blue-600 shadow-xs dark:bg-gray-800 dark:text-blue-400' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100']">
+                                📋 Personalbogen
+                            </button>
+                            <button @click="state.ui.schuelerTab = 'notizen'" 
+                                    :class="['flex-1 py-2 text-center rounded-lg font-bold transition', state.ui.schuelerTab === 'notizen' ? 'bg-white text-blue-600 shadow-xs dark:bg-gray-800 dark:text-blue-400' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100']">
+                                📝 Erhebungen
+                            </button>
+                            <button @click="state.ui.schuelerTab = 'noten'" 
+                                    :class="['flex-1 py-2 text-center rounded-lg font-bold transition', state.ui.schuelerTab === 'noten' ? 'bg-white text-blue-600 shadow-xs dark:bg-gray-800 dark:text-blue-400' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100']">
+                                📊 Noten & Bewertungen
+                            </button>
+                            <button @click="state.ui.schuelerTab = 'foerder'" 
+                                    :class="['flex-1 py-2 text-center rounded-lg font-bold transition', state.ui.schuelerTab === 'foerder' ? 'bg-white text-blue-600 shadow-xs dark:bg-gray-800 dark:text-blue-400' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100']">
+                                🎯 Förderpläne
+                            </button>
+                            <button @click="state.ui.schuelerTab = 'ziele'" 
+                                    :class="['flex-1 py-2 text-center rounded-lg font-bold transition', state.ui.schuelerTab === 'ziele' ? 'bg-white text-blue-600 shadow-xs dark:bg-gray-800 dark:text-blue-400' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100']">
+                                🏆 Ziele
+                            </button>
+                        </div>
+                    </div>
+
+
+                    <!-- Inner Scrollable Dossier Content -->
+                    <div class="flex-1 p-5 overflow-y-auto custom-scroll space-y-4">
+                        
+                        <!-- TAB A: PERSONALBOGEN -->
+                        <div v-if="state.ui.schuelerTab === 'personal'" class="space-y-4 animate-in fade-in duration-100">
+                            <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 dark:bg-gray-800 dark:border-gray-700">
+                                <h5 class="text-xs font-bold text-blue-600 uppercase tracking-wider">Daten des Schülers</h5>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1 dark:text-gray-500">Voller Name</label>
+                                        <input type="text" v-model="getSelectedSchueler.name" class="w-full bg-stone-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-900 dark:border-gray-700">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1 dark:text-gray-500">Geburtsdatum</label>
+                                        <input type="date" v-model="getSelectedSchueler.geburtsdatum" class="w-full bg-stone-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-900 dark:border-gray-700">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-2 dark:bg-gray-800 dark:border-gray-700">
+                                <h5 class="text-xs font-bold text-blue-600 uppercase tracking-wider">Häusliche & Familiäre Lebenssituation</h5>
+                                <p class="text-[11px] text-gray-400 leading-snug dark:text-gray-500">Sichere hier wichtige Infos zu Erziehungsberechtigten, Förderansätzen oder emotionalen Rahmenbedingungen.</p>
+                                <textarea v-model="getSelectedSchueler.lebenssituation" rows="6" placeholder="z.B. Lebt bei Großeltern. Benötigt oft emotionale Unterstützung. Mutter arbeitet im Schichtdienst..." class="w-full bg-stone-50 border border-gray-200 rounded-lg p-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none custom-scroll dark:bg-gray-900 dark:border-gray-700"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- TAB B: UNTERRICHTSNOTIZEN (Chronologisch) -->
+                        <div v-if="state.ui.schuelerTab === 'notizen'" class="space-y-3 animate-in fade-in duration-100">
+                            <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-200 shadow-xs mb-1 dark:bg-gray-800 dark:border-gray-700">
+                                <span class="text-xs font-semibold text-gray-700 dark:text-gray-200">Beobachtungsprotokoll</span>
+                                <input type="text" v-model="suchBegriff" placeholder="🔍 Filtern..." class="border border-gray-200 rounded px-2 py-1 text-[11px] focus:outline-none dark:border-gray-700">
+                            </div>
+                            
+                            <div class="space-y-2">
+                                <div v-for="notiz in gefilterteSchuelerNotizen" :key="notiz.id" class="bg-white border border-gray-200 rounded-xl p-3 text-xs shadow-xs relative dark:bg-gray-800 dark:border-gray-700">
+                                    <div class="flex justify-between font-bold text-gray-500 mb-1 dark:text-gray-400">
+                                        <span>📅 {{ notiz.datum }}</span>
+                                        <span class="text-blue-600 font-semibold">{{ notiz.stundeDetails }}</span>
+                                    </div>
+                                    <p class="text-gray-800 text-sm leading-relaxed pr-16 dark:text-gray-100">{{ notiz.text }}</p>
+                                    
+                                    <!-- Schüler-Beobachtung löschen (Zwei-Klick) -->
+                                    <button @click="triggerDelete('notizSchueler', notiz.id)" 
+                                            :class="['absolute right-3 bottom-3 px-2 py-1 rounded text-[10px] font-bold transition-all', isConfirming('notizSchueler', notiz.id) ? 'bg-yellow-400 text-gray-900' : 'bg-red-50 text-red-500 hover:bg-red-500 hover:text-white']">
+                                        <span v-if="isConfirming('notizSchueler', notiz.id)">Sicher?</span>
+                                        <span v-else>🗑️ Löschen</span>
+                                    </button>
+                                </div>
+                                <div v-if="gefilterteSchuelerNotizen.length === 0" class="text-center py-8 text-gray-400 text-xs bg-white rounded-xl border border-dashed border-gray-200 dark:text-gray-500 dark:bg-gray-800 dark:border-gray-700">Keine Einträge für diesen Schüler vorhanden.</div>
+                            </div>
+                        </div>
+
+                        <!-- TAB C: NOTEN & BEWERTUNGEN -->
+                        <div v-if="state.ui.schuelerTab === 'noten'" class="space-y-4 animate-in fade-in duration-100">
+                            
+                            <!-- Eingabe-Formular für Noten -->
+                            <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 dark:bg-gray-800 dark:border-gray-700">
+                                <h5 class="text-xs font-bold text-blue-600 uppercase tracking-wider">Neue Bewertung hinzufügen</h5>
+                                <div class="grid grid-cols-4 gap-2">
+                                    <div>
+                                        <label class="block text-[9px] text-gray-400 font-bold uppercase mb-0.5 dark:text-gray-500">Fach</label>
+                                        <input type="text" v-model="neueNote.fach" placeholder="z.B. Deutsch" class="w-full bg-stone-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none dark:bg-gray-900 dark:border-gray-700">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[9px] text-gray-400 font-bold uppercase mb-0.5 dark:text-gray-500">Typ</label>
+                                        <select v-model="neueNote.typ" class="w-full bg-stone-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none dark:bg-gray-900 dark:border-gray-700">
+                                            <option value="Klassenarbeit">Klassenarbeit</option>
+                                            <option value="Test / Überprüfung">Test</option>
+                                            <option value="Mitarbeit">Mitarbeit</option>
+                                            <option value="Epochalnote">Epochalnote</option>
+                                            <option value="Hausaufgaben">Hausaufgaben</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[9px] text-gray-400 font-bold uppercase mb-0.5 dark:text-gray-500">Note/Punkte</label>
+                                        <input type="text" v-model="neueNote.note" placeholder="z.B. 2+ oder 12P" class="w-full bg-stone-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none dark:bg-gray-900 dark:border-gray-700">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[9px] text-gray-400 font-bold uppercase mb-0.5 dark:text-gray-500">Datum</label>
+                                        <input type="date" v-model="neueNote.datum" class="w-full bg-stone-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none dark:bg-gray-900 dark:border-gray-700">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] text-gray-400 font-bold uppercase mb-0.5 dark:text-gray-500">Bemerkung / Kriterium</label>
+                                    <input type="text" v-model="neueNote.bemerkung" placeholder="z.B. Fehler beim Addieren, Struktur war gut" class="w-full bg-stone-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none dark:bg-gray-900 dark:border-gray-700">
+                                </div>
+                                <button @click="fuegeNoteHinzu" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition">Bewertung eintragen</button>
+                            </div>
+
+                            <!-- Noten-Verlaufstabelle -->
+                            <div class="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-hidden dark:bg-gray-800 dark:border-gray-700">
+                                <table class="min-w-full divide-y divide-gray-200 text-xs text-left">
+                                    <thead class="bg-gray-100 text-gray-600 font-bold uppercase tracking-wider dark:bg-gray-700 dark:text-gray-300">
+                                        <tr>
+                                            <th class="px-4 py-2.5">Datum</th>
+                                            <th class="px-4 py-2.5">Fach</th>
+                                            <th class="px-4 py-2.5">Typ</th>
+                                            <th class="px-4 py-2.5">Note</th>
+                                            <th class="px-4 py-2.5">Bemerkung</th>
+                                            <th class="px-4 py-2.5 text-right">Löschen</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100 text-gray-700 dark:text-gray-200">
+                                        <tr v-for="item in getSelectedSchueler.noten" :key="item.id" class="hover:bg-stone-50 dark:hover:bg-gray-700">
+                                            <td class="px-4 py-2.5 font-medium whitespace-nowrap">{{ formatDatum(item.datum) }}</td>
+                                            <td class="px-4 py-2.5 font-bold">{{ item.fach }}</td>
+                                            <td class="px-4 py-2.5 text-gray-500 dark:text-gray-400">{{ item.typ }}</td>
+                                            <td class="px-4 py-2.5"><span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold">{{ item.note }}</span></td>
+                                            <td class="px-4 py-2.5 text-gray-500 truncate max-w-[150px] dark:text-gray-400" :title="item.bemerkung">{{ item.bemerkung || '-' }}</td>
+                                            <td class="px-4 py-2.5 text-right">
+                                                <button @click="triggerDelete('note', item.id)" 
+                                                        :class="['px-2 py-0.5 rounded text-[10px] font-bold transition-all', isConfirming('note', item.id) ? 'bg-yellow-400 text-gray-900' : 'bg-red-50 text-red-500 hover:bg-red-500 hover:text-white']">
+                                                    <span v-if="isConfirming('note', item.id)">Ja</span>
+                                                    <span v-else>🗑️</span>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <tr v-if="!getSelectedSchueler.noten || getSelectedSchueler.noten.length === 0">
+                                            <td colspan="6" class="px-4 py-8 text-center text-gray-400 dark:text-gray-500">Keine Bewertungen für dieses Kind hinterlegt.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- TAB D: FÖRDERPLÄNE -->
+                        <div v-if="state.ui.schuelerTab === 'foerder'" class="space-y-4 animate-in fade-in duration-100">
+                            
+                            <!-- Upload- & Schreibe-Werkzeuge -->
+                            <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 dark:bg-gray-800 dark:border-gray-700">
+                                <h5 class="text-xs font-bold text-blue-600 uppercase tracking-wider">Förderplan hinterlegen</h5>
+                                <p class="text-[11px] text-gray-400 leading-snug dark:text-gray-500">Du kannst einen Text-Förderplan (.txt / .md) direkt importieren oder hier manuell einen Plan eintippen.</p>
+                                
+                                <div class="grid grid-cols-2 gap-2">
+                                    <!-- ECHTER DATEI-IMPORT FÜR FÖRDERPLÄNE -->
+                                    <div class="relative">
+                                        <input type="file" 
+                                               accept=".txt,.md,.markdown" 
+                                               @change="importFoerderplan" 
+                                               class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                                        <div class="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 border border-indigo-200 transition dark:bg-indigo-950 dark:hover:bg-indigo-900">
+                                            <span>📥 Förderplan importieren</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <button @click="state.ui.showManualFoerderEditor = !state.ui.showManualFoerderEditor" class="py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-bold transition dark:bg-gray-700 dark:hover:bg-gray-600">
+                                        ✍️ Manuell schreiben
+                                    </button>
+                                </div>
+
+                                <!-- Manueller Eingabeblock (Inline) -->
+                                <div v-if="state.ui.showManualFoerderEditor" class="p-3 bg-stone-50 rounded-xl border border-stone-200 space-y-2.5 dark:bg-gray-900">
+                                    <input type="text" v-model="neuerFoerderplan.titel" placeholder="Titel (z.B. LRS-Förderung 2026)" class="w-full border border-gray-200 rounded-lg p-2 text-xs focus:outline-none bg-white dark:border-gray-700 dark:bg-gray-800">
+                                    <textarea v-model="neuerFoerderplan.inhalt" rows="4" placeholder="Förderziele, Maßnahmen und Absprachen..." class="w-full border border-gray-200 rounded-lg p-2 text-xs focus:outline-none bg-white resize-none dark:border-gray-700 dark:bg-gray-800"></textarea>
+                                    <button @click="speichereManuellenFoerderplan" class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition">Sichern</button>
+                                </div>
+                            </div>
+
+                            <!-- Liste hinterlegter Förderpläne -->
+                            <div class="space-y-2">
+                                <div v-for="plan in getSelectedSchueler.foerderplaene" :key="plan.id" class="bg-white border border-gray-200 rounded-xl p-3.5 shadow-xs flex justify-between items-center transition hover:border-gray-300 dark:bg-gray-800 dark:border-gray-700">
+                                    <div class="space-y-0.5 truncate pr-4">
+                                        <span class="text-[10px] text-gray-400 font-semibold block dark:text-gray-500">📅 Eingestellt am: {{ formatDatum(plan.datum) }}</span>
+                                        <h6 class="text-sm font-bold text-gray-800 truncate dark:text-gray-100">🎯 {{ plan.titel }}</h6>
+                                    </div>
+                                    <div class="flex gap-1.5 shrink-0">
+                                        <!-- Readonly Betrachter-Button -->
+                                        <button @click="oeffneFoerderplanReadOnly(plan)" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold transition dark:bg-indigo-950 dark:hover:bg-indigo-900">
+                                            🔎 Lesen
+                                        </button>
+                                        
+                                        <!-- Löschbutton mit Sicherheitszweitschritt -->
+                                        <button @click="triggerDelete('foerderplan', plan.id)" 
+                                                :class="['px-2.5 py-1.5 rounded text-xs font-bold transition-all', isConfirming('foerderplan', plan.id) ? 'bg-yellow-400 text-gray-900' : 'bg-red-50 text-red-500 hover:bg-red-500 hover:text-white']">
+                                            <span v-if="isConfirming('foerderplan', plan.id)">Ja</span>
+                                            <span v-else>🗑️</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div v-if="!getSelectedSchueler.foerderplaene || getSelectedSchueler.foerderplaene.length === 0" class="text-center py-8 text-gray-400 text-xs bg-white rounded-xl border border-dashed border-gray-200 dark:text-gray-500 dark:bg-gray-800 dark:border-gray-700">Keine Förderpläne vorhanden.</div>
+                            </div>
+                        </div>
+
+                        <!-- TAB E: AKTUELLE & BISHERIGE ZIELE (NEU) -->
+                        <div v-if="state.ui.schuelerTab === 'ziele'" class="space-y-4 animate-in fade-in duration-100">
+
+                            <!-- Neues Ziel anlegen -->
+                            <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 dark:bg-gray-800 dark:border-gray-700">
+                                <h5 class="text-xs font-bold text-blue-600 uppercase tracking-wider dark:text-blue-400">Neues Ziel anlegen</h5>
+                                <div class="flex gap-2">
+                                    <input type="text" v-model="neuesZiel.titel" placeholder="z.B. Meldet sich im Unterricht" class="flex-1 border border-gray-200 rounded-lg p-2 text-xs bg-stone-50 focus:outline-none dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100">
+                                    <button @click="fuegeZielHinzu" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shrink-0">+ Anlegen</button>
+                                </div>
+                            </div>
+
+                            <!-- Aktuelle Ziele -->
+                            <div class="space-y-3">
+                                <h5 class="text-xs font-bold text-gray-400 uppercase tracking-wider px-1 dark:text-gray-500">Aktuelle Ziele</h5>
+
+                                <div v-for="ziel in aktiveZiele" :key="ziel.id" class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 dark:bg-gray-800 dark:border-gray-700">
+                                    <div class="flex justify-between items-start gap-3">
+                                        <div>
+                                            <h6 class="text-sm font-bold text-gray-800 dark:text-gray-100">🎯 {{ ziel.titel }}</h6>
+                                            <p class="text-[10px] text-gray-400 dark:text-gray-500">Aktiv seit {{ formatDatum(ziel.startDatum) }}</p>
+                                        </div>
+                                        <button @click="schliesseZielAb(ziel.id)" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-500 text-emerald-700 hover:text-white border border-emerald-200 rounded-lg text-[10px] font-bold transition shrink-0 dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-300">
+                                            ✔️ Abgeschlossen
+                                        </button>
+                                    </div>
+
+                                    <!-- Heutige Bewertung: 5 Smiley-Abstufungen -->
+                                    <div class="bg-stone-50 rounded-xl p-3 border border-gray-100 dark:bg-gray-900 dark:border-gray-700">
+                                        <div class="flex justify-between items-center mb-2">
+                                            <span class="text-[10px] font-bold text-gray-500 uppercase dark:text-gray-400">Heute bewerten ({{ heuteFormatiert }})</span>
+                                            <span v-if="getHeutigeBewertung(ziel)" class="text-[10px] text-emerald-600 font-semibold dark:text-emerald-400">✔️ Heute bereits bewertet</span>
+                                        </div>
+                                        <div class="flex justify-between gap-1">
+                                            <button v-for="stufe in 5" :key="stufe"
+                                                    @click="setzeZielBewertung(ziel, stufe)"
+                                                    :class="['flex-1 py-2 rounded-lg text-xl transition border-2',
+                                                             getHeutigeBewertung(ziel) === stufe
+                                                                ? 'border-blue-400 bg-blue-50 dark:bg-blue-950 dark:border-blue-600'
+                                                                : 'border-transparent hover:bg-gray-100 dark:hover:bg-gray-700']"
+                                                    :title="zielSmileyLabel(stufe)">
+                                                {{ zielSmileyEmoji(stufe) }}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Mini-Auswertung: Tabelle + Graph -->
+                                    <div v-if="ziel.bewertungen && ziel.bewertungen.length > 0">
+                                        <button @click="toggleZielAuswertung(ziel.id)" class="text-[10px] font-bold text-blue-600 hover:underline dark:text-blue-400">
+                                            {{ offeneZielAuswertungen.includes(ziel.id) ? '▲ Auswertung ausblenden' : '▼ Auswertung anzeigen (' + ziel.bewertungen.length + ' Einträge)' }}
+                                        </button>
+                                        <div v-if="offeneZielAuswertungen.includes(ziel.id)" class="mt-2 space-y-3">
+                                            <div class="bg-stone-50 border border-gray-100 rounded-xl p-3 dark:bg-gray-900 dark:border-gray-700">
+                                                <svg viewBox="0 0 300 100" class="w-full h-24">
+                                                    <polyline :points="zielGraphPunkte(ziel)" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                    <circle v-for="(p, i) in zielGraphKreise(ziel)" :key="i" :cx="p.x" :cy="p.y" r="2.5" fill="#3b82f6"/>
+                                                    <line x1="0" y1="80" x2="300" y2="80" stroke="currentColor" stroke-width="0.5" class="text-gray-300 dark:text-gray-700"/>
+                                                </svg>
+                                                <div class="flex justify-between text-[9px] text-gray-400 mt-1 dark:text-gray-500">
+                                                    <span>😢 1</span><span>5 😄</span>
+                                                </div>
+                                            </div>
+                                            <div class="overflow-x-auto">
+                                                <table class="min-w-full text-[11px] text-left">
+                                                    <thead class="text-gray-400 font-bold uppercase dark:text-gray-500">
+                                                        <tr><th class="px-2 py-1">Datum</th><th class="px-2 py-1">Bewertung</th></tr>
+                                                    </thead>
+                                                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                                        <tr v-for="b in [...ziel.bewertungen].reverse()" :key="b.datum">
+                                                            <td class="px-2 py-1 text-gray-600 dark:text-gray-300">{{ formatDatum(b.datum) }}</td>
+                                                            <td class="px-2 py-1">{{ zielSmileyEmoji(b.wert) }} {{ b.wert }}/5</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div v-if="aktiveZiele.length === 0" class="text-center py-8 text-gray-400 text-xs bg-white rounded-xl border border-dashed border-gray-200 dark:text-gray-500 dark:bg-gray-800 dark:border-gray-700">
+                                    Keine aktiven Ziele. Lege oben ein neues Ziel an.
+                                </div>
+                            </div>
+
+                            <!-- Bisherige Ziele -->
+                            <div class="space-y-3" v-if="bisherigeZiele.length > 0">
+                                <h5 class="text-xs font-bold text-gray-400 uppercase tracking-wider px-1 dark:text-gray-500">Bisherige Ziele</h5>
+
+                                <div v-for="ziel in bisherigeZiele" :key="ziel.id" class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 opacity-80 dark:bg-gray-800 dark:border-gray-700">
+                                    <div class="flex justify-between items-start gap-3">
+                                        <div>
+                                            <h6 class="text-sm font-bold text-gray-600 dark:text-gray-300">✅ {{ ziel.titel }}</h6>
+                                            <p class="text-[10px] text-gray-400 dark:text-gray-500">{{ formatDatum(ziel.startDatum) }} – {{ formatDatum(ziel.endDatum) }}</p>
+                                        </div>
+                                        <button @click="reaktiviereZiel(ziel.id)" class="px-3 py-1.5 bg-gray-50 hover:bg-gray-200 text-gray-500 border border-gray-200 rounded-lg text-[10px] font-bold transition shrink-0 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
+                                            ↺ Reaktivieren
+                                        </button>
+                                    </div>
+
+                                    <div v-if="ziel.bewertungen && ziel.bewertungen.length > 0">
+                                        <button @click="toggleZielAuswertung(ziel.id)" class="text-[10px] font-bold text-blue-600 hover:underline dark:text-blue-400">
+                                            {{ offeneZielAuswertungen.includes(ziel.id) ? '▲ Auswertung ausblenden' : '▼ Auswertung anzeigen (' + ziel.bewertungen.length + ' Einträge)' }}
+                                        </button>
+                                        <div v-if="offeneZielAuswertungen.includes(ziel.id)" class="mt-2 space-y-3">
+                                            <div class="bg-stone-50 border border-gray-100 rounded-xl p-3 dark:bg-gray-900 dark:border-gray-700">
+                                                <svg viewBox="0 0 300 100" class="w-full h-24">
+                                                    <polyline :points="zielGraphPunkte(ziel)" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                    <circle v-for="(p, i) in zielGraphKreise(ziel)" :key="i" :cx="p.x" :cy="p.y" r="2.5" fill="#3b82f6"/>
+                                                    <line x1="0" y1="80" x2="300" y2="80" stroke="currentColor" stroke-width="0.5" class="text-gray-300 dark:text-gray-700"/>
+                                                </svg>
+                                                <div class="flex justify-between text-[9px] text-gray-400 mt-1 dark:text-gray-500">
+                                                    <span>😢 1</span><span>5 😄</span>
+                                                </div>
+                                            </div>
+                                            <div class="overflow-x-auto">
+                                                <table class="min-w-full text-[11px] text-left">
+                                                    <thead class="text-gray-400 font-bold uppercase dark:text-gray-500">
+                                                        <tr><th class="px-2 py-1">Datum</th><th class="px-2 py-1">Bewertung</th></tr>
+                                                    </thead>
+                                                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                                        <tr v-for="b in [...ziel.bewertungen].reverse()" :key="b.datum">
+                                                            <td class="px-2 py-1 text-gray-600 dark:text-gray-300">{{ formatDatum(b.datum) }}</td>
+                                                            <td class="px-2 py-1">{{ zielSmileyEmoji(b.wert) }} {{ b.wert }}/5</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+                
+                <!-- Fallback wenn kein Schüler ausgewählt -->
+                <div class="w-2/3 flex flex-col items-center justify-center text-gray-400 text-xs bg-stone-50 dark:text-gray-500 dark:bg-gray-900" v-else>
+                    <span class="text-4xl mb-2">👥</span>
+                    Wähle links ein Kind aus der Schülerliste aus,<br>
+                    um dessen Akte oder Noten einzusehen.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- POPUP 4: PLANUNGSBIBLIOTHEK (AUSWAHL-OVERLAY AUS SIDEBAR) -->
+    <div v-if="showLibrarySelection" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden dark:bg-gray-800">
+            <div class="bg-blue-600 px-4 py-3 flex justify-between items-center text-white">
+                <span class="font-bold text-sm">Unterrichtsplanung verknüpfen</span>
+                <button @click="showLibrarySelection = false" class="text-white hover:text-blue-100 text-xs">Schließen</button>
+            </div>
+            <div class="p-4 overflow-y-auto max-h-[400px] space-y-3 custom-scroll">
+                <div v-for="ordner in state.bibliothek.ordner" :key="ordner.name" class="border border-gray-100 rounded-lg overflow-hidden dark:border-gray-700">
+                    <div class="bg-gray-50 px-3 py-2 text-xs font-bold text-gray-600 border-b dark:bg-gray-800 dark:text-gray-300">📁 {{ ordner.name }}</div>
+                    <div class="divide-y divide-gray-100">
+                        <div v-for="plan in ordner.plaene" :key="plan.id" @click="waehlePlanung(ordner.name, plan.id, plan.titel)" class="p-3 text-sm hover:bg-blue-50 cursor-pointer flex justify-between items-center dark:hover:bg-blue-900">
+                            <span class="font-medium text-gray-700 dark:text-gray-200">📄 {{ plan.titel }}</span>
+                            <span class="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">Wählen</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- POPUP 5: INTERAKTIVE PLANUNGSBIBLIOTHEK (ORDNERSTRUKTUR & DYNAMISCHER EDITOR) -->
+    <div v-if="showBibliothekModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200 dark:bg-gray-800">
+            
+            <!-- Header -->
+            <div class="bg-blue-600 text-white px-5 py-4 flex justify-between items-center border-b">
+                <div>
+                    <h3 class="text-lg font-bold flex items-center gap-2">
+                        <span>📚 Planungsbibliothek (Ordnerstruktur)</span>
+                    </h3>
+                    <p class="text-xs text-blue-100">Unterrichtsentwürfe erstellen, Links integrieren & Phasen-Tabellen bauen</p>
+                </div>
+                <button @click="showBibliothekModal = false" class="text-blue-100 hover:text-white transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+
+            <!-- Hauptbereich -->
+            <div class="flex-1 flex overflow-hidden">
+                
+                <!-- Linker Bereich: Ordner & Dokumentenliste -->
+                <div class="w-1/3 border-r border-gray-200 bg-gray-50 flex flex-col justify-between overflow-y-auto custom-scroll p-4 dark:border-gray-700 dark:bg-gray-800">
+                    
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider dark:text-gray-500">Ablageordner</span>
+                        </div>
+
+                        <!-- Ordnerstruktur-Liste -->
+                        <div v-for="ordner in state.bibliothek.ordner" :key="ordner.name" class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-xs dark:bg-gray-800 dark:border-gray-700">
+                            <div class="bg-gray-100/80 px-3 py-2 text-xs font-bold text-gray-700 border-b border-gray-200 flex justify-between items-center dark:text-gray-200 dark:border-gray-700">
+                                <span class="truncate">📁 {{ ordner.name }}</span>
+                                
+                                <!-- Ordner löschen -->
+                                <button @click.stop="triggerDelete('ordnerBib', ordner.name)" 
+                                        :class="['px-2 py-0.5 rounded text-[9px] font-bold transition-all', isConfirming('ordnerBib', ordner.name) ? 'bg-yellow-400 text-gray-900' : 'bg-red-50 text-red-600 hover:bg-red-600 hover:text-white']">
+                                    <span v-if="isConfirming('ordnerBib', ordner.name)">Sicher?</span>
+                                    <span v-else>🗑️ Ordner</span>
+                                </button>
+                            </div>
+                            
+                            <!-- Dokumente im Ordner -->
+                            <div class="divide-y divide-gray-100">
+                                <div v-for="plan in ordner.plaene" :key="plan.id"
+                                        @click="waehlePlanAusBib(ordner.name, plan.id)"
+                                        :class="['w-full p-3 text-xs transition flex justify-between items-center cursor-pointer', activeBibPlan?.id === plan.id ? 'bg-blue-500 text-white font-bold' : 'text-gray-700 hover:bg-blue-50']">
+                                    <span class="truncate pr-2">📄 {{ plan.titel }}</span>
+                                    
+                                    <div class="flex items-center gap-1.5 shrink-0">
+                                        <span class="text-[9px] px-1.5 py-0.5 rounded-full" :class="activeBibPlan?.id === plan.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'">
+                                            {{ plan.tabelle ? plan.tabelle.length : 0 }} Ph.
+                                        </span>
+                                        
+                                        <!-- Planseite aus Ordner löschen -->
+                                        <button @click.stop="triggerDelete('planBib', plan.id)" 
+                                                :class="['px-1.5 py-0.5 rounded font-bold text-[10px] transition-all', isConfirming('planBib', plan.id) ? 'bg-yellow-400 text-gray-900' : 'text-red-500 bg-red-50 hover:bg-red-500 hover:text-white'] dark:bg-red-950">
+                                            <span v-if="isConfirming('planBib', plan.id)">Ja</span>
+                                            <span v-else>🗑|</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Dokument direkt im Ordner erstellen (Ohne Browser-Prompt!) -->
+                                <div class="p-2 bg-gray-50/50 flex gap-1.5 dark:bg-gray-900/50">
+                                    <input type="text" 
+                                           v-model="neuerPlanTitelMap[ordner.name]" 
+                                           placeholder="Neue Stunde..." 
+                                           class="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-[11px] focus:outline-none bg-white dark:border-gray-700 dark:bg-gray-800">
+                                    <button @click="erstelleNeuePlanung(ordner.name)" class="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] font-bold">+</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Neuen Ordner anlegen (Inline) -->
+                    <div class="pt-4 border-t border-gray-200 mt-4 bg-gray-50 dark:border-gray-700 dark:bg-gray-800">
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 dark:text-gray-500">Neuer Themenordner</label>
+                        <div class="flex gap-2">
+                            <input type="text" v-model="neuerOrdnerName" placeholder="z.B. Geometrie 4b..." class="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none bg-white dark:border-gray-700 dark:bg-gray-800">
+                            <button @click="erstelleOrdner" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold">+</button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Rechter Bereich: Dynamischer Editor / Ansicht -->
+                <div class="w-2/3 p-6 overflow-y-auto custom-scroll bg-stone-50 flex flex-col justify-between dark:bg-gray-900">
+                    
+                    <div v-if="activeBibPlan" class="space-y-6">
+                        
+                        <!-- Header & Switcher (Ansicht vs. Edit) -->
+                        <div class="flex justify-between items-center border-b border-gray-200 pb-3 dark:border-gray-700">
+                            <div>
+                                <span class="text-xs text-blue-600 font-bold uppercase tracking-wider">{{ activeBibPlanOrdner }}</span>
+                                <h4 class="text-xl font-bold text-gray-800 dark:text-gray-100" v-if="!bibEditMode">{{ activeBibPlan.titel }}</h4>
+                                <input type="text" v-else v-model="activeBibPlan.titel" class="text-xl font-bold text-gray-800 border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 focus:outline-none w-full max-w-md dark:text-gray-100 dark:border-gray-600">
+                            </div>
+                            
+                            <button @click="bibEditMode = !bibEditMode" 
+                                    :class="['px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm', bibEditMode ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'] dark:hover:bg-gray-600">
+                                <span v-if="bibEditMode">✔️ Speichern & Fertig</span>
+                                <span v-else>✍️ Plan editieren</span>
+                            </button>
+                        </div>
+
+                        <!-- 1. TEXTINHALT -->
+                        <div class="space-y-2">
+                            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block dark:text-gray-500">Beschreibung & Ablauf</span>
+                            <div v-if="!bibEditMode" class="bg-white border border-gray-200 rounded-2xl p-4 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200">
+                                {{ activeBibPlan.inhalt || 'Noch kein Beschreibungstext vorhanden. Klicke auf "Plan editieren", um hier etwas zu hinterlegen!' }}
+                            </div>
+                            <textarea v-else 
+                                      v-model="activeBibPlan.inhalt" 
+                                      rows="6" 
+                                      placeholder="Hier kannst du den groben Ablauf oder wichtige Einstiegs-Notizen niederschreiben..." 
+                                      class="w-full bg-white border border-gray-200 rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 dark:bg-gray-800 dark:border-gray-700"></textarea>
+                        </div>
+
+                        <!-- 2. DYNAMISCHES LINK-MODUL -->
+                        <div class="space-y-2">
+                            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block dark:text-gray-500">Verknüpfte Web-Links</span>
+                            
+                            <!-- Ansichtsmodus: Liste klickbarer Links -->
+                            <div v-if="!bibEditMode" class="flex flex-wrap gap-2">
+                                <a v-for="link in activeBibPlan.links" 
+                                   :key="link.url" 
+                                   :href="link.url" 
+                                   target="_blank" 
+                                   class="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition border border-blue-100 dark:bg-blue-950 dark:hover:bg-blue-900">
+                                    <span>🌐 {{ link.titel }}</span>
+                                </a>
+                                <span v-if="!activeBibPlan.links || activeBibPlan.links.length === 0" class="text-xs text-gray-400 dark:text-gray-500">Keine Links hinterlegt.</span>
+                            </div>
+
+                            <!-- Bearbeitungsmodus: Links hinzufügen & löschen -->
+                            <div v-else class="space-y-3 bg-white border border-gray-200 rounded-2xl p-4 dark:bg-gray-800 dark:border-gray-700">
+                                <div v-for="(link, index) in activeBibPlan.links" :key="index" class="flex justify-between items-center bg-gray-50 p-2 rounded-lg text-xs dark:bg-gray-800">
+                                    <span class="font-semibold text-gray-700 dark:text-gray-200">{{ link.titel }} (<span class="text-gray-400 font-normal dark:text-gray-500">{{ link.url }}</span>)</span>
+                                    <button @click="loescheLink(index)" class="text-red-500 hover:text-red-700 font-bold">Löschen</button>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <input type="text" v-model="neuerLinkTitel" placeholder="Link-Titel (z.B. Video Erörterung)" class="border border-gray-200 rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-700">
+                                    <input type="text" v-model="neuerLinkUrl" placeholder="https://..." class="border border-gray-200 rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-700">
+                                </div>
+                                <button @click="fuegeLinkHinzu" class="w-full py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-bold transition dark:bg-blue-950 dark:hover:bg-blue-900">+ Link hinzufügen</button>
+                            </div>
+                        </div>
+
+                        <!-- 3. INTERAKTIVES TABELLEN-MODUL -->
+                        <div class="space-y-2">
+                            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block dark:text-gray-500">Unterrichtsraster / Ablaufplan</span>
+                            
+                            <!-- Ansichtsmodus: Schicke, gerenderte Tabelle -->
+                            <div v-if="!bibEditMode" class="overflow-x-auto rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+                                <table class="min-w-full divide-y divide-gray-200 text-xs text-left">
+                                    <thead class="bg-gray-100 text-gray-600 font-bold uppercase tracking-wider dark:bg-gray-700 dark:text-gray-300">
+                                        <tr>
+                                            <th class="px-4 py-3">Zeit</th>
+                                            <th class="px-4 py-3">Phase</th>
+                                            <th class="px-4 py-3">Inhalt / Aktivität</th>
+                                            <th class="px-4 py-3">Methode / Sozialform</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100 text-gray-700 dark:text-gray-200">
+                                        <tr v-for="row in activeBibPlan.tabelle" :key="row.zeit">
+                                            <td class="px-4 py-3 font-semibold text-blue-600">{{ row.zeit }}</td>
+                                            <td class="px-4 py-3 font-semibold">{{ row.phase }}</td>
+                                            <td class="px-4 py-3">{{ row.inhalt }}</td>
+                                            <td class="px-4 py-3"><span class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full font-medium dark:bg-gray-700 dark:text-gray-300">{{ row.methode }}</span></td>
+                                        </tr>
+                                        <tr v-if="!activeBibPlan.tabelle || activeBibPlan.tabelle.length === 0">
+                                            <td colspan="4" class="px-4 py-8 text-center text-gray-400 dark:text-gray-500">Kein Tabellenraster für diese Stunde hinterlegt.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Bearbeitungsmodus: Interaktiver Zeilen-Builder -->
+                            <div v-else class="space-y-3 bg-white border border-gray-200 rounded-2xl p-4 overflow-x-auto dark:bg-gray-800 dark:border-gray-700">
+                                <table class="min-w-full divide-y divide-gray-200 text-xs text-left">
+                                    <thead class="bg-gray-50 text-gray-500 font-bold uppercase dark:bg-gray-800 dark:text-gray-400">
+                                        <tr>
+                                            <th class="px-2 py-2">Zeit</th>
+                                            <th class="px-2 py-2">Phase</th>
+                                            <th class="px-2 py-2">Inhalt / Aktivität</th>
+                                            <th class="px-2 py-2">Methode</th>
+                                            <th class="px-2 py-2 text-right">Aktion</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        <tr v-for="(row, idx) in activeBibPlan.tabelle" :key="idx">
+                                            <td class="p-1"><input type="text" v-model="row.zeit" placeholder="10'" class="w-16 border rounded p-1 bg-white dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100"></td>
+                                            <td class="p-1"><input type="text" v-model="row.phase" placeholder="Einstieg" class="w-24 border rounded p-1 bg-white dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100"></td>
+                                            <td class="p-1"><input type="text" v-model="row.inhalt" placeholder="Ablauf erklären..." class="w-full min-w-[150px] border rounded p-1 bg-white dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100"></td>
+                                            <td class="p-1"><input type="text" v-model="row.methode" placeholder="Plenum" class="w-24 border rounded p-1 bg-white dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100"></td>
+                                            <td class="p-1 text-right">
+                                                <button @click="loescheTabellenZeile(idx)" class="text-red-500 hover:text-red-700 font-bold px-2 py-1">Löschen</button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <button @click="fuegeTabellenZeileHinzu" class="w-full py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl text-xs font-bold transition dark:bg-blue-950 dark:hover:bg-blue-900">+ Neue Unterrichtsphase hinzufügen</button>
+                            </div>
+                        </div>
+
+                    </div>
+                    
+                    <!-- Fallback -->
+                    <div v-else class="flex-1 flex flex-col items-center justify-center text-gray-400 text-xs text-center py-24 dark:text-gray-500">
+                        <span class="text-4xl mb-2">📄</span>
+                        Wähle links eine Planungsseite aus einem Ordner aus,<br>
+                        oder erstelle eine neue Planung direkt in einem Ordner.
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- POPUP 6: NOTIZ-ARCHIV (DYNAMISCHE THEMEN-ORDNER) -->
+    <div v-if="showArchivModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[85vh] flex flex-col overflow-hidden dark:bg-gray-800">
+            <div class="bg-indigo-700 text-white px-5 py-4 flex justify-between items-center shrink-0">
+                <div>
+                    <h3 class="text-lg font-bold">📝 Unterrichts-Notizarchiv</h3>
+                    <p class="text-xs text-indigo-100">Deine freien Notizen sortiert nach Themen</p>
+                </div>
+                <button @click="showArchivModal = false" class="text-indigo-200 hover:text-white transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div class="flex-1 flex overflow-hidden">
+                <div class="w-1/3 border-r border-gray-200 bg-gray-50 p-4 flex flex-col justify-between overflow-y-auto custom-scroll dark:border-gray-700 dark:bg-gray-800">
+                    <div class="space-y-3">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1 dark:text-gray-500">Themenordner</span>
+                        <div class="space-y-1">
+                            <div v-for="ordner in state.archiv.themenOrdnerList" :key="ordner" 
+                                 :class="['w-full p-3 rounded-xl text-xs font-bold flex justify-between items-center transition cursor-pointer', selectedThemenOrdner === ordner ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-200 dark:text-gray-200 dark:hover:bg-gray-700']"
+                                 @click="selectedThemenOrdner = ordner">
+                                <span class="flex items-center gap-2">📁 {{ ordner }}</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="bg-black/10 px-1.5 py-0.5 rounded text-[10px]">{{ getNotesCountInFolder(ordner) }}</span>
+                                    
+                                    <!-- Löschen Archiv-Ordner -->
+                                    <button v-if="ordner !== 'Allgemein'" @click.stop="triggerDelete('ordnerArchiv', ordner)" 
+                                            :class="['px-1.5 py-0.5 rounded text-[9px] font-bold transition-all', isConfirming('ordnerArchiv', ordner) ? 'bg-yellow-400 text-gray-900' : 'bg-red-500/10 text-red-600 hover:bg-red-600 hover:text-white']">
+                                        <span v-if="isConfirming('ordnerArchiv', ordner)">Sicher?</span>
+                                        <span v-else>🗑️</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pt-4 border-t border-gray-200 mt-4 dark:border-gray-700">
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 dark:text-gray-500">Neuer Ordner</label>
+                        <div class="flex gap-2">
+                            <input type="text" v-model="neuerOrdnerName" placeholder="Name..." class="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-gray-700">
+                            <button @click="erstelleOrdner" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold">+</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="w-2/3 p-5 flex flex-col overflow-y-auto custom-scroll bg-stone-50 dark:bg-gray-900">
+                    <div class="flex justify-between items-center border-b border-gray-200 pb-3 mb-4 dark:border-gray-700">
+                        <h4 class="text-sm font-bold text-gray-800 dark:text-gray-100">Ordner-Inhalt: {{ selectedThemenOrdner }}</h4>
+                    </div>
+                    <div class="space-y-4">
+                        <div v-for="notiz in getNotesInFolder(selectedThemenOrdner)" :key="notiz.key" class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs relative dark:bg-gray-800 dark:border-gray-700">
+                            <div class="flex justify-between items-center border-b border-gray-100 pb-2 mb-2 text-xs dark:border-gray-700">
+                                <span class="text-blue-600 font-semibold">📅 {{ notiz.datum }} - {{ notiz.stundenName }}</span>
+                                <span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-[10px] font-bold dark:bg-gray-700 dark:text-gray-300">{{ notiz.klasse }}</span>
+                            </div>
+                            <p class="text-sm text-gray-700 whitespace-pre-wrap pr-16 dark:text-gray-200">{{ notiz.text }}</p>
+                            
+                            <!-- Archiv-Eintrag löschen -->
+                            <button @click="triggerDelete('notizArchiv', notiz.key)" 
+                                    :class="['absolute right-3 top-10 px-2 py-1 rounded text-[10px] font-bold transition-all', isConfirming('notizArchiv', notiz.key) ? 'bg-yellow-400 text-gray-900' : 'bg-red-50 text-red-500 hover:bg-red-500 hover:text-white']">
+                                <span v-if="isConfirming('notizArchiv', notiz.key)">Sicher?</span>
+                                <span v-else>🗑️ Löschen</span>
+                            </button>
+
+                            <div class="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center dark:border-gray-700">
+                                <span class="text-[10px] text-gray-400 dark:text-gray-500">Verschieben nach:</span>
+                                <select :value="notiz.currentFolder" @change="verschiebeNotiz(notiz.key, $event.target.value)" class="border border-gray-200 rounded px-2 py-1 text-[11px] bg-gray-50 focus:outline-none dark:border-gray-700 dark:bg-gray-800">
+                                    <option v-for="ordner in state.archiv.themenOrdnerList" :key="ordner" :value="ordner">📁 {{ ordner }}</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- POPUP 7: EINSTELLUNGEN (SCHULJAHR, FERIEN, TAGFARBEN, STUNDENPLAN-VORLAGE) -->
+    <div v-if="showInfoModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200 dark:bg-gray-800">
+
+            <!-- Header -->
+            <div class="bg-gray-800 text-white px-5 py-4 flex justify-between items-center border-b shrink-0">
+                <div>
+                    <h3 class="text-base font-bold">⚙️ Schuljahr & Stundenplan einrichten</h3>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">Ferien, Tagesfarben und deine wöchentliche Vorlage festlegen</p>
+                </div>
+                <button @click="showInfoModal = false" class="text-gray-400 hover:text-white transition dark:text-gray-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+
+            <!-- Tab-Navigation -->
+            <div class="bg-gray-100 px-4 pt-3 flex gap-1 text-xs shrink-0 dark:bg-gray-700">
+                <button @click="settingsTab = 'schuljahr'" :class="['px-4 py-2.5 rounded-t-xl font-bold transition', settingsTab === 'schuljahr' ? 'bg-white text-blue-600 shadow-xs dark:bg-gray-800 dark:text-blue-400' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100']">
+                    📅 Schuljahr & Ferien
+                </button>
+                <button @click="settingsTab = 'farben'" :class="['px-4 py-2.5 rounded-t-xl font-bold transition', settingsTab === 'farben' ? 'bg-white text-blue-600 shadow-xs dark:bg-gray-800 dark:text-blue-400' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100']">
+                    🎨 Tagesfarben
+                </button>
+                <button @click="settingsTab = 'vorlage'" :class="['px-4 py-2.5 rounded-t-xl font-bold transition', settingsTab === 'vorlage' ? 'bg-white text-blue-600 shadow-xs dark:bg-gray-800 dark:text-blue-400' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100']">
+                    🗓️ Stundenplan-Vorlage
+                </button>
+                <button @click="settingsTab = 'darstellung'" :class="['px-4 py-2.5 rounded-t-xl font-bold transition', settingsTab === 'darstellung' ? 'bg-white text-blue-600 shadow-xs dark:bg-gray-800 dark:text-blue-400' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100']">
+                    🌓 Darstellung
+                </button>
+            </div>
+
+
+            <!-- Inhalt -->
+            <div class="flex-1 overflow-y-auto custom-scroll p-5 bg-stone-50 space-y-5 dark:bg-gray-900">
+
+                <!-- TAB A: SCHULJAHR & FERIEN -->
+                <div v-if="settingsTab === 'schuljahr'" class="space-y-5 animate-in fade-in duration-100">
+
+                    <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 dark:bg-gray-800 dark:border-gray-700">
+                        <h5 class="text-xs font-bold text-blue-600 uppercase tracking-wider">Schuljahres-Zeitraum</h5>
+                        <p class="text-[11px] text-gray-400 leading-snug dark:text-gray-500">Wird nur zur Anzeige des Schuljahr-Labels genutzt. Du kannst trotzdem in jede beliebige Woche navigieren.</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1 dark:text-gray-500">Erster Schultag</label>
+                                <input type="date" v-model="state.schuljahr.start" class="w-full bg-stone-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-900 dark:border-gray-700">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1 dark:text-gray-500">Letzter Schultag</label>
+                                <input type="date" v-model="state.schuljahr.ende" class="w-full bg-stone-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-900 dark:border-gray-700">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 dark:bg-gray-800 dark:border-gray-700">
+                        <h5 class="text-xs font-bold text-pink-600 uppercase tracking-wider">🏖️ Ferien & schulfreie Zeiträume</h5>
+                        <p class="text-[11px] text-gray-400 leading-snug dark:text-gray-500">Eingetragene Zeiträume werden im Stundenplan automatisch rosa markiert und gestreift dargestellt.</p>
+
+                        <!-- Liste bestehender Ferien -->
+                        <div class="space-y-2">
+                            <div v-for="(f, idx) in state.ferien" :key="idx" class="flex items-center gap-2 bg-pink-50 border border-pink-100 rounded-xl p-2.5 dark:bg-pink-950">
+                                <input type="text" v-model="f.name" placeholder="Name (z.B. Herbstferien)" class="flex-1 min-w-0 border border-gray-200 rounded-lg p-1.5 text-xs bg-white focus:outline-none dark:border-gray-700 dark:bg-gray-800">
+                                <input type="date" v-model="f.von" class="border border-gray-200 rounded-lg p-1.5 text-xs bg-white focus:outline-none dark:border-gray-700 dark:bg-gray-800">
+                                <span class="text-gray-400 text-xs dark:text-gray-500">bis</span>
+                                <input type="date" v-model="f.bis" class="border border-gray-200 rounded-lg p-1.5 text-xs bg-white focus:outline-none dark:border-gray-700 dark:bg-gray-800">
+                                <button @click="entferneFerien(idx)" class="px-2 py-1.5 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-lg text-[10px] font-bold transition shrink-0 dark:bg-red-950">🗑️</button>
+                            </div>
+                            <div v-if="state.ferien.length === 0" class="text-center py-6 text-gray-400 text-xs bg-white rounded-xl border border-dashed border-gray-200 dark:text-gray-500 dark:bg-gray-800 dark:border-gray-700">Noch keine Ferien hinterlegt.</div>
+                        </div>
+
+                        <!-- Neue Ferien hinzufügen -->
+                        <div class="pt-3 border-t border-gray-100 flex items-end gap-2 dark:border-gray-700">
+                            <div class="flex-1 min-w-0">
+                                <label class="block text-[9px] text-gray-400 font-bold uppercase mb-0.5 dark:text-gray-500">Name</label>
+                                <input type="text" v-model="neueFerien.name" placeholder="z.B. Sommerferien" class="w-full border border-gray-200 rounded-lg p-1.5 text-xs bg-stone-50 focus:outline-none dark:border-gray-700 dark:bg-gray-900">
+                            </div>
+                            <div>
+                                <label class="block text-[9px] text-gray-400 font-bold uppercase mb-0.5 dark:text-gray-500">Von</label>
+                                <input type="date" v-model="neueFerien.von" class="border border-gray-200 rounded-lg p-1.5 text-xs bg-stone-50 focus:outline-none dark:border-gray-700 dark:bg-gray-900">
+                            </div>
+                            <div>
+                                <label class="block text-[9px] text-gray-400 font-bold uppercase mb-0.5 dark:text-gray-500">Bis</label>
+                                <input type="date" v-model="neueFerien.bis" class="border border-gray-200 rounded-lg p-1.5 text-xs bg-stone-50 focus:outline-none dark:border-gray-700 dark:bg-gray-900">
+                            </div>
+                            <button @click="fuegeFerienHinzu" class="px-3 py-1.5 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-xs font-bold transition shrink-0">+ Hinzufügen</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB B: TAGESFARBEN-ÜBERSICHT -->
+                <div v-if="settingsTab === 'farben'" class="space-y-4 animate-in fade-in duration-100">
+                    <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-2 dark:bg-gray-800 dark:border-gray-700">
+                        <h5 class="text-xs font-bold text-blue-600 uppercase tracking-wider">Wie Tage einfärben?</h5>
+                        <p class="text-[11px] text-gray-500 leading-snug dark:text-gray-400">
+                            Öffne eine beliebige Stunde im Stundenplan (Klick auf eine Zelle) - dort findest du oben in der Seitenleiste
+                            die Farbauswahl für den ganzen Tag und für die einzelne Stunde. Ferientage werden automatisch rosa markiert
+                            und haben Vorrang vor manuell gesetzten Farben.
+                        </p>
+                    </div>
+
+                    <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 dark:bg-gray-800 dark:border-gray-700">
+                        <h5 class="text-xs font-bold text-blue-600 uppercase tracking-wider">Aktuell eingefärbte Tage</h5>
+                        <div v-if="eingefaerbteTage.length > 0" class="space-y-2">
+                            <div v-for="eintrag in eingefaerbteTage" :key="eintrag.datum" class="flex items-center gap-3 bg-stone-50 border border-gray-100 rounded-xl p-2.5 dark:bg-gray-900 dark:border-gray-700">
+                                <div class="w-6 h-6 rounded-full shrink-0" :style="{ backgroundColor: eintrag.farbe }"></div>
+                                <span class="text-xs font-semibold text-gray-700 flex-1 dark:text-gray-200">{{ formatDatumLang(eintrag.datum) }}</span>
+                                <button @click="setzeTagFarbe(eintrag.datum, '')" class="px-2.5 py-1 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-lg text-[10px] font-bold transition dark:bg-red-950">Entfernen</button>
+                            </div>
+                        </div>
+                        <div v-else class="text-center py-6 text-gray-400 text-xs bg-stone-50 rounded-xl border border-dashed border-gray-200 dark:text-gray-500 dark:bg-gray-900 dark:border-gray-700">
+                            Noch keine Tage individuell eingefärbt.
+                        </div>
+                    </div>
+
+                    <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 dark:bg-gray-800 dark:border-gray-700">
+                        <h5 class="text-xs font-bold text-blue-600 uppercase tracking-wider">Aktuell eingefärbte einzelne Stunden</h5>
+                        <div v-if="eingefaerbteStunden.length > 0" class="space-y-2">
+                            <div v-for="eintrag in eingefaerbteStunden" :key="eintrag.key" class="flex items-center gap-3 bg-stone-50 border border-gray-100 rounded-xl p-2.5 dark:bg-gray-900 dark:border-gray-700">
+                                <div class="w-6 h-6 rounded-full shrink-0" :style="{ backgroundColor: eintrag.farbe }"></div>
+                                <span class="text-xs font-semibold text-gray-700 flex-1 dark:text-gray-200">{{ formatDatumLang(eintrag.datum) }} • {{ eintrag.stunde }}. Stunde</span>
+                                <button @click="setzeStundeFarbe(eintrag.datum, eintrag.stunde, '')" class="px-2.5 py-1 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-lg text-[10px] font-bold transition dark:bg-red-950">Entfernen</button>
+                            </div>
+                        </div>
+                        <div v-else class="text-center py-6 text-gray-400 text-xs bg-stone-50 rounded-xl border border-dashed border-gray-200 dark:text-gray-500 dark:bg-gray-900 dark:border-gray-700">
+                            Noch keine einzelnen Stunden eingefärbt.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB C: STUNDENPLAN-VORLAGE -->
+                <div v-if="settingsTab === 'vorlage'" class="space-y-4 animate-in fade-in duration-100">
+                    <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-2 dark:bg-gray-800 dark:border-gray-700">
+                        <h5 class="text-xs font-bold text-blue-600 uppercase tracking-wider">Deine Wochenvorlage</h5>
+                        <p class="text-[11px] text-gray-500 leading-snug dark:text-gray-400">
+                            Trage hier dein normales Fach + Klasse pro Wochentag und Stunde ein. Diese Vorlage gilt automatisch für
+                            alle zukünftigen Wochen des Schuljahres - du musst nichts pro Woche neu eintippen. Einzelne Tage kannst
+                            du im Stundenplan trotzdem jederzeit abweichend befüllen (z.B. Vertretung, Ausfall).
+                        </p>
+                    </div>
+
+                    <div class="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-hidden dark:bg-gray-800 dark:border-gray-700">
+                        <table class="min-w-full text-xs text-left">
+                            <thead class="bg-gray-100 text-gray-600 font-bold uppercase tracking-wider dark:bg-gray-700 dark:text-gray-300">
+                                <tr>
+                                    <th class="px-3 py-2.5 w-20">Stunde</th>
+                                    <th class="px-3 py-2.5" v-for="wt in vorlageWochentage" :key="wt.key">{{ wt.name }}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                <tr v-for="stundeNo in 6" :key="stundeNo">
+                                    <td class="px-3 py-2 font-bold text-gray-500 align-top dark:text-gray-400">{{ stundeNo }}.</td>
+                                    <td class="px-3 py-2 align-top" v-for="wt in vorlageWochentage" :key="wt.key + '_' + stundeNo">
+                                        <div class="space-y-1">
+                                            <input type="text"
+                                                   v-model="getVorlageEintrag(wt.key, stundeNo).fach"
+                                                   placeholder="Fach"
+                                                   class="w-full border border-gray-200 rounded-lg p-1.5 text-xs bg-stone-50 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900">
+                                            <input type="text"
+                                                   v-model="getVorlageEintrag(wt.key, stundeNo).klasse"
+                                                   placeholder="Klasse"
+                                                   class="w-full border border-gray-200 rounded-lg p-1.5 text-xs bg-stone-50 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900">
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="bg-blue-50 border border-blue-200 rounded-2xl p-4 space-y-3 dark:bg-blue-950">
+                        <h5 class="text-xs font-bold text-blue-700 uppercase tracking-wider">Vorlage übernehmen</h5>
+                        <p class="text-[11px] text-blue-600 leading-snug">
+                            Die Vorlage oben gilt automatisch für alle <strong>noch leeren</strong> Stunden. Falls du nachträglich
+                            die Vorlage geändert hast und auch <strong>bereits angelegte, unveränderte</strong> Stunden
+                            (ohne eigene Notizen/Termine) aktualisieren möchtest, klicke hier:
+                        </p>
+                        <div class="flex items-center gap-3">
+                            <button @click="uebernehmeVorlageFuerRestlichesSchuljahr" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm">
+                                🔄 Vorlage auf restliches Schuljahr anwenden
+                            </button>
+                            <span v-if="vorlageUebernahmeMessage" class="text-xs font-semibold text-blue-700">{{ vorlageUebernahmeMessage }}</span>
+                        </div>
+                        <p class="text-[10px] text-blue-500 leading-snug">
+                            Hinweis: Stunden mit Notizen, Terminen, Skizzen oder verknüpften Planungen werden dabei <strong>nicht überschrieben</strong>,
+                            um Bestehendes zu schützen.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- TAB D: DARSTELLUNG (DARK MODE) -->
+                <div v-if="settingsTab === 'darstellung'" class="space-y-4 animate-in fade-in duration-100">
+                    <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 dark:bg-gray-800 dark:border-gray-700">
+                        <h5 class="text-xs font-bold text-blue-600 uppercase tracking-wider dark:text-blue-400">Farbschema</h5>
+                        <p class="text-[11px] text-gray-400 leading-snug dark:text-gray-500">
+                            Wechsel zwischen hellem und dunklem Design. Die Einstellung wird gespeichert und bleibt auch nach
+                            einem Neustart der App erhalten.
+                        </p>
+                        <div class="flex items-center gap-3 pt-1">
+                            <button @click="darkMode = false"
+                                    :class="['flex-1 py-3 rounded-xl text-xs font-bold transition border flex items-center justify-center gap-2',
+                                             !darkMode ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-300' : 'bg-stone-50 border-gray-200 text-gray-500 hover:border-gray-300 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-400']">
+                                <span>☀️ Hell</span>
+                            </button>
+                            <button @click="darkMode = true"
+                                    :class="['flex-1 py-3 rounded-xl text-xs font-bold transition border flex items-center justify-center gap-2',
+                                             darkMode ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-300' : 'bg-stone-50 border-gray-200 text-gray-500 hover:border-gray-300 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-400']">
+                                <span>🌙 Dunkel</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+
+    <div v-if="state.ui.activeFoerderplanReadOnly" class="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[80vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200 dark:bg-gray-800">
+            <!-- Header -->
+            <div class="bg-indigo-700 text-white px-5 py-4 flex justify-between items-center shrink-0">
+                <div>
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-200">Akten-Einsicht (Nur Lesen)</span>
+                    <h3 class="text-lg font-bold">🎯 {{ state.ui.activeFoerderplanReadOnly.titel }}</h3>
+                    <p class="text-xs text-indigo-100">Für Schüler: {{ getSelectedSchueler?.name }}</p>
+                </div>
+                <button @click="state.ui.activeFoerderplanReadOnly = null" class="text-indigo-200 hover:text-white font-bold text-xs bg-indigo-800 hover:bg-indigo-900 px-3 py-2 rounded-xl transition">
+                    Dokument schließen
+                </button>
+            </div>
+            
+            <!-- Dokumenteninhalt -->
+            <div class="flex-1 p-6 overflow-y-auto custom-scroll bg-stone-50 dark:bg-gray-900">
+                <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs leading-relaxed text-sm text-gray-800 whitespace-pre-wrap dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100">
+                    {{ state.ui.activeFoerderplanReadOnly.inhalt || 'Dieses Dokument enthält keinen Text.' }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const { createApp, ref, computed, nextTick, watch } = Vue;
+
+    // =========================================================================
+    // DATUMS- & KALENDER-HILFSFUNKTIONEN (modulweit verfügbar)
+    // =========================================================================
+    const WOCHENTAGE_NAMEN = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
+    const VORLAGE_KEYS = ["Mo", "Di", "Mi", "Do", "Fr"];
+
+    function toISODate(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
+    function addDays(isoDate, days) {
+        const d = new Date(isoDate + "T00:00:00");
+        d.setDate(d.getDate() + days);
+        return toISODate(d);
+    }
+
+    function getMontagDerWoche(isoDate) {
+        const d = new Date(isoDate + "T00:00:00");
+        const tag = d.getDay(); // 0=So, 1=Mo, ... 6=Sa
+        const diff = tag === 0 ? -6 : 1 - tag;
+        d.setDate(d.getDate() + diff);
+        return toISODate(d);
+    }
+
+    function formatTagDatum(isoDate) {
+        const d = new Date(isoDate + "T00:00:00");
+        return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.`;
+    }
+
+    function formatDatumLang(isoDate) {
+        const d = new Date(isoDate + "T00:00:00");
+        return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`;
+    }
+
+    function getKalenderwoche(isoDate) {
+        const d = new Date(isoDate + "T00:00:00");
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+        const week1 = new Date(d.getFullYear(), 0, 4);
+        return 1 + Math.round(((d - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+    }
+
+    createApp({
+        setup() {
+            // =========================================================================
+            // ZENTRALER STATE (DATENSPEICHER)                                           
+            // =========================================================================
+            const state = ref({
+
+                // SCHUBLADE -1: App-Einstellungen (NEU)
+                einstellungen: {
+                    darkMode: false
+                },
+
+                // SCHUBLADE 0: Schuljahr & Ferien (NEU - steuert den ganzen Kalender)
+                schuljahr: {
+                    start: "2026-09-14",  // Montag der ersten Schulwoche
+                    ende: "2027-07-23"    // letzter Schultag (Freitag)
+                },
+                ferien: [
+                    { name: "Herbstferien", von: "2026-10-26", bis: "2026-10-30" },
+                    { name: "Weihnachtsferien", von: "2026-12-23", bis: "2027-01-06" },
+                    { name: "Osterferien", von: "2027-03-29", bis: "2027-04-09" },
+                    { name: "Pfingstferien", von: "2027-05-17", bis: "2027-05-28" },
+                    { name: "Sommerferien", von: "2027-07-26", bis: "2027-09-03" }
+                ],
+
+                // SCHUBLADE 1: (entfernt) - Kalendertage werden jetzt live berechnet
+
+                // SCHUBLADE 2: Stundenplan-Vorlage (Normalfall pro Wochentag) & Daten (Abweichungen pro Datum)
+                stundenplan: {
+                    // Vorlage: Key = "Mo_1", "Di_3" usw. -> Standardbelegung
+                    vorlage: {
+                        "Mo_1": { fach: "Mathematik", klasse: "4b" },
+                        "Mo_2": { fach: "Deutsch", klasse: "4b" }
+                    },
+                    // Daten: Key = "YYYY-MM-DD_StundenNr" -> konkrete Einträge/Abweichungen für diesen Tag
+                    daten: {
+                        "2026-09-14_1": { fach: "Mathematik", klasse: "4b", kurzeintrag: "Klassenarbeit ankündigen!", planungLink: "Satz des Pythagoras Einführung", planungId: "mathe_pythagoras", planungOrdner: "Mathe Klasse 4", freitext: "Einstieg lief super, Levin unruhig.", themenOrdner: "Mathe Klasse 4", sketches: [] },
+                        "2026-09-14_2": { fach: "Deutsch", klasse: "4b", kurzeintrag: "", planungLink: "", planungId: "", planungOrdner: "", freitext: "Gedichte rezitieren geübt.", themenOrdner: "Allgemein", sketches: [] }
+                    }
+                },
+
+                // SCHUBLADE 2b: Farben für Tage und einzelne Stunden (NEU)
+                farben: {
+                    tage: {},    // { "2026-09-14": "#fde68a" }
+                    stunden: {}  // { "2026-09-14_3": "#bae6fd" }
+                },
+
+                // SCHUBLADE 3: Schülerkartei & Schülernotizen (Dossier-ready!)
+                schueler: {
+                    schuelerListe: [
+                        { 
+                            id: "s1", 
+                            name: "Max Mustermann", 
+                            klasse: "4b",
+                            geburtsdatum: "2016-04-12",
+                            lebenssituation: "Lebt bei den Großeltern. Großvater ist Hauptansprechpartner. Benötigt oft emotionale Bestätigung im Matheunterricht.",
+                            noten: [
+                                { id: "g_1", fach: "Mathematik", typ: "Klassenarbeit", note: "2+", bemerkung: "Hervorragende Geometrie-Leistung", datum: "2026-05-18" },
+                                { id: "g_2", fach: "Deutsch", typ: "Mitarbeit", note: "3", bemerkung: "Macht gut mit, schwatzt ab und zu", datum: "2026-06-02" }
+                            ],
+                            foerderplaene: [
+                                { id: "fp_1", titel: "Förderplan Feinmotorik & Pencil", inhalt: "Ziele:\n1. Saubere Pinselführung auf dem iPad-Grid.\n2. Richtige Haltung des Stiftes einnehmen.\n\nMaßnahmen:\nRegelmäßige Zeichen-Übungen am Stundenende mit der Freihandschablone der App.\n\nEvaluation am 30. Juni.", datum: "2026-05-20" }
+                            ],
+                            ziele: [
+                                { id: "z_1", titel: "Meldet sich freiwillig im Unterricht", status: "aktiv", startDatum: "2026-06-08", endDatum: null,
+                                  bewertungen: [
+                                    { datum: "2026-06-08", wert: 2 },
+                                    { datum: "2026-06-09", wert: 3 },
+                                    { datum: "2026-06-10", wert: 3 },
+                                    { datum: "2026-06-11", wert: 4 }
+                                  ] }
+                            ]
+                        },
+                        { 
+                            id: "s2", 
+                            name: "Anna Schmidt", 
+                            klasse: "4b",
+                            geburtsdatum: "2016-09-25",
+                            lebenssituation: "Beide Eltern voll berufstätig. Sehr selbstständig.",
+                            noten: [],
+                            foerderplaene: [],
+                            ziele: []
+                        },
+                        { 
+                            id: "s3", 
+                            name: "Levin Maier", 
+                            klasse: "4b",
+                            geburtsdatum: "2016-02-05",
+                            lebenssituation: "ADHS-Diagnose gesichert. Nimmt Medikamente. Sitzt vorne an der Tafel.",
+                            noten: [],
+                            foerderplaene: [],
+                            ziele: []
+                        }
+                    ],
+                    schuelerNotizen: [
+                        { id: "init_1", schuelerId: "s1", schuelerName: "Max Mustermann", datum_key: "2026-09-14", stunde: 1, stundeDetails: "Mathematik (14.09.2026, 1. Std.)", datum: "14.09.2026", text: "Hausaufgaben gefehlt #Hausaufgaben" }
+                    ]
+                },
+
+                // SCHUBLADE 4: Unterrichts-Bibliothek (ORDNER & STRUKTURIERTE PLANUNGEN)
+                bibliothek: {
+                    ordner: [
+                        { 
+                            name: "Mathe Klasse 4", 
+                            plaene: [
+                                {
+                                    id: "mathe_pythagoras",
+                                    titel: "Satz des Pythagoras Einführung",
+                                    inhalt: "Einstieg: Formel-Quiz zur Reaktivierung des Wissens.\nErarbeitung: Gemeinsames Zeichnen auf dem iPad-Sicherungsgitter.\nSicherung: Übungsaufgaben im Buch S. 12.",
+                                    links: [
+                                        { titel: "Arbeitsblatt Pythagoras", url: "https://schulportal.de/arbeitsblatt_pythagoras.pdf" }
+                                    ],
+                                    tabelle: [
+                                        { zeit: "10'", phase: "Einstieg", inhalt: "Formel-Quiz an Tafel", methode: "Plenum" },
+                                        { zeit: "20'", phase: "Erarbeitung", inhalt: "iPad-Koordinaten-Grid zeichnen", methode: "Einzelarbeit" },
+                                        { zeit: "15'", phase: "Sicherung", inhalt: "Buchseite 12 Nummer 4 & 5", methode: "Partnerarbeit" }
+                                    ]
+                                }
+                            ] 
+                        }
+                    ]
+                },
+
+                // SCHUBLADE 5: Notiz-Archiv (Themenordner)
+                archiv: {
+                    themenOrdnerList: ["Allgemein", "Mathe Klasse 4", "Klassenorga", "Methodik"]
+                },
+
+                // UI Status (Wird nicht permanent lokal gespeichert)
+                ui: {
+                    showSidebar: false,
+                    showCompactNotesPanel: false,
+                    activeFields: [],
+                    activeSlot: { datum: "", stunde: null },
+                    schuelerTab: 'personal',
+                    showManualFoerderEditor: false,
+                    activeFoerderplanReadOnly: null
+                }
+            });
+
+            // Aktuell angezeigte Woche (Montag-Datum, ISO-Format) - NICHT Teil des persistenten States
+            const aktuelleWoche = ref(getMontagDerWoche(toISODate(new Date())));
+            // =========================================================================
+            // CAPACITOR COMPATIBLE STORAGE CORE                                        
+            // =========================================================================
+            const STORAGE_KEY = "lehrerapp_v1_data";
+
+            const loadData = async () => {
+                const isCapacitor = typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Preferences;
+                let saved = null;
+                
+                if (isCapacitor) {
+                    const { value } = await Capacitor.Plugins.Preferences.get({ key: STORAGE_KEY });
+                    saved = value;
+                } else {
+                    saved = localStorage.getItem(STORAGE_KEY);
+                }
+
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        state.value.einstellungen = parsed.einstellungen || state.value.einstellungen;
+                        if (typeof state.value.einstellungen.darkMode !== 'boolean') state.value.einstellungen.darkMode = false;
+                        state.value.schuljahr = parsed.schuljahr || state.value.schuljahr;
+                        state.value.ferien = parsed.ferien || state.value.ferien;
+                        state.value.stundenplan = parsed.stundenplan || state.value.stundenplan;
+                        state.value.farben = parsed.farben || state.value.farben;
+                        if (!state.value.farben.tage) state.value.farben.tage = {};
+                        if (!state.value.farben.stunden) state.value.farben.stunden = {};
+                        if (!Array.isArray(state.value.ferien)) state.value.ferien = [];
+                        state.value.schueler = parsed.schueler || state.value.schueler;
+                        state.value.bibliothek = parsed.bibliothek || state.value.bibliothek;
+                        state.value.archiv = parsed.archiv || state.value.archiv;
+
+                        // Sicherstellen, dass neue Schülerfelder abwärtskompatibel existieren!
+                        state.value.schueler.schuelerListe.forEach(s => {
+                            if (!s.geburtsdatum) s.geburtsdatum = "";
+                            if (!s.lebenssituation) s.lebenssituation = "";
+                            if (!s.noten) s.noten = [];
+                            if (!s.foerderplaene) s.foerderplaene = [];
+                            if (!s.ziele) s.ziele = [];
+                        });
+
+                        // Abwärtskompatibilität: alte Skizzen-Arrays (Punkt-Listen) in SVG-Pfade umwandeln
+                        for (const key in state.value.stundenplan.daten) {
+                            const slot = state.value.stundenplan.daten[key];
+                            if (slot.sketches && slot.sketches.length > 0 && Array.isArray(slot.sketches[0])) {
+                                slot.sketches = slot.sketches.map(path => {
+                                    if (!path || path.length < 2) return "";
+                                    let d = `M${path[0].x.toFixed(1)},${path[0].y.toFixed(1)}`;
+                                    for (let i = 1; i < path.length; i++) {
+                                        d += ` L${path[i].x.toFixed(1)},${path[i].y.toFixed(1)}`;
+                                    }
+                                    return d;
+                                }).filter(d => d !== "");
+                            }
+                            if (!slot.farbe) slot.farbe = "";
+                        }
+
+                    } catch (e) {
+                        console.error("Fehler beim Laden der App-Daten", e);
+                    }
+                }
+            };
+
+            const saveData = async () => {
+                const isCapacitor = typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Preferences;
+                const dataToSave = JSON.stringify({
+                    einstellungen: state.value.einstellungen,
+                    schuljahr: state.value.schuljahr,
+                    ferien: state.value.ferien,
+                    stundenplan: state.value.stundenplan,
+                    farben: state.value.farben,
+                    schueler: state.value.schueler,
+                    bibliothek: state.value.bibliothek,
+                    archiv: state.value.archiv
+                });
+
+                if (isCapacitor) {
+                    await Capacitor.Plugins.Preferences.set({
+                        key: STORAGE_KEY,
+                        value: dataToSave
+                    });
+                } else {
+                    localStorage.setItem(STORAGE_KEY, dataToSave);
+                }
+            };
+
+            // FIX: Debounced Autosave - verhindert übermäßig häufige Schreibvorgänge beim Tippen
+            let saveTimer = null;
+            watch(state, () => {
+                if (saveTimer) clearTimeout(saveTimer);
+                saveTimer = setTimeout(() => {
+                    saveData();
+                }, 500);
+            }, { deep: true });
+
+            loadData();
+
+            // =========================================================================
+            // DARK MODE (NEU)
+            // =========================================================================
+            // Computed mit Getter/Setter, damit das Template bequem "darkMode = true/false" schreiben kann
+            const darkMode = computed({
+                get: () => state.value.einstellungen.darkMode,
+                set: (val) => { state.value.einstellungen.darkMode = val; }
+            });
+
+            // Wendet die "dark"-Klasse auf <html> an, sobald sich darkMode ändert (auch initial nach loadData)
+            watch(() => state.value.einstellungen.darkMode, (val) => {
+                document.documentElement.classList.toggle('dark', !!val);
+            }, { immediate: true });
+
+
+            // =========================================================================
+            // KALENDER-LOGIK (NEU): Wochen-Navigation, Ferien & Datumsberechnung
+            // =========================================================================
+            const schuljahrLabel = computed(() => {
+                const startJahr = state.value.schuljahr.start.slice(0, 4);
+                const endeJahr = state.value.schuljahr.ende.slice(0, 4);
+                return `${startJahr}/${endeJahr}`;
+            });
+
+            const getFerienAm = (isoDate) => {
+                return state.value.ferien.find(f => isoDate >= f.von && isoDate <= f.bis) || null;
+            };
+
+            // Die fünf Tage (Mo-Fr) der aktuell angezeigten Woche
+            const wochenTage = computed(() => {
+                return WOCHENTAGE_NAMEN.map((name, i) => {
+                    const datum = addDays(aktuelleWoche.value, i);
+                    const ferien = getFerienAm(datum);
+                    return {
+                        name,
+                        kurz: VORLAGE_KEYS[i],
+                        datum,
+                        datum_anzeige: formatTagDatum(datum),
+                        heute: datum === toISODate(new Date()),
+                        ferien: ferien ? ferien.name : null
+                    };
+                });
+            });
+
+            // Ferienname, falls die aktuelle Woche (mind. ein Tag) in den Ferien liegt
+            const ferienDieserWoche = computed(() => {
+                for (const tag of wochenTage.value) {
+                    if (tag.ferien) return tag.ferien;
+                }
+                return null;
+            });
+
+            const wocheVorOderZurueck = (tageDelta) => {
+                aktuelleWoche.value = addDays(aktuelleWoche.value, tageDelta);
+            };
+
+            const springeZuHeute = () => {
+                aktuelleWoche.value = getMontagDerWoche(toISODate(new Date()));
+            };
+
+            const formatTagLangmitDatum = (isoDate) => {
+                if (!isoDate) return "";
+                const d = new Date(isoDate + "T00:00:00");
+                const wochentagIdx = (d.getDay() + 6) % 7; // Mo=0..So=6
+                const name = wochentagIdx <= 4 ? WOCHENTAGE_NAMEN[wochentagIdx] : (wochentagIdx === 5 ? "Samstag" : "Sonntag");
+                return `${name}, ${formatTagDatum(isoDate)}${d.getFullYear()}`;
+            };
+
+
+            // =========================================================================
+            // FARB-LOGIK (NEU): Tage und einzelne Stunden einfärben, Ferien hervorheben
+            // =========================================================================
+            const farbpalette = [
+                { name: "Keine Farbe", wert: "" },
+                { name: "Gelb", wert: "#fef08a" },
+                { name: "Orange", wert: "#fed7aa" },
+                { name: "Rot", wert: "#fecaca" },
+                { name: "Grün", wert: "#bbf7d0" },
+                { name: "Blau", wert: "#bae6fd" },
+                { name: "Lila", wert: "#e9d5ff" },
+                { name: "Grau", wert: "#e5e7eb" }
+            ];
+
+            const FERIEN_FARBE = "#fbcfe8"; // rosa - feste Ferienfarbe, hat Vorrang
+
+            const getTagFarbe = (datum) => {
+                return state.value.farben.tage[datum] || "";
+            };
+
+            const setzeTagFarbe = (datum, farbe) => {
+                if (!farbe) {
+                    delete state.value.farben.tage[datum];
+                } else {
+                    state.value.farben.tage[datum] = farbe;
+                }
+            };
+
+            const getStundeFarbe = (datum, stunde) => {
+                return state.value.farben.stunden[`${datum}_${stunde}`] || "";
+            };
+
+            const setzeStundeFarbe = (datum, stunde, farbe) => {
+                const key = `${datum}_${stunde}`;
+                if (!farbe) {
+                    delete state.value.farben.stunden[key];
+                } else {
+                    state.value.farben.stunden[key] = farbe;
+                }
+            };
+
+            const hatStundeFarbe = (datum, stunde) => {
+                return !!getStundeFarbe(datum, stunde);
+            };
+
+            // Style für die Tageskopfzeile: Ferien haben Vorrang vor manueller Farbe
+            const getTagFarbeStyle = (tag) => {
+                if (tag.ferien) {
+                    return { backgroundColor: FERIEN_FARBE };
+                }
+                const farbe = getTagFarbe(tag.datum);
+                if (farbe) {
+                    return { backgroundColor: farbe };
+                }
+                return tag.heute ? { backgroundColor: '#2563eb' } : { backgroundColor: '#e5e7eb' };
+            };
+
+            // Textfarbe je nach Hintergrund (für Lesbarkeit auf hellen/dunklen Farbflächen)
+            const getTagTextClass = (tag, secondary) => {
+                if (tag.ferien) return secondary ? 'text-pink-800' : 'text-pink-900 font-bold';
+                const farbe = getTagFarbe(tag.datum);
+                if (farbe) return secondary ? 'text-gray-600' : 'text-gray-800';
+                if (tag.heute) return secondary ? 'text-blue-100' : 'text-white';
+                return secondary ? 'text-gray-500' : 'text-gray-700';
+            };
+
+            // Style für einzelne Stunden-Zelle: Ferien > manuelle Stundenfarbe
+            const getStundeFarbeStyle = (datum, stunde) => {
+                const ferien = getFerienAm(datum);
+                if (ferien) {
+                    return { backgroundColor: FERIEN_FARBE, opacity: '0.65' };
+                }
+                const farbe = getStundeFarbe(datum, stunde);
+                if (farbe) {
+                    return { backgroundColor: farbe };
+                }
+                return {};
+            };
+
+            // =========================================================================
+            // EINSTELLUNGEN: FERIENVERWALTUNG (NEU)
+            // =========================================================================
+            const fuegeFerienHinzu = () => {
+                if (!neueFerien.value.name.trim() || !neueFerien.value.von || !neueFerien.value.bis) return;
+                if (neueFerien.value.bis < neueFerien.value.von) return;
+
+                state.value.ferien.push({
+                    name: neueFerien.value.name.trim(),
+                    von: neueFerien.value.von,
+                    bis: neueFerien.value.bis
+                });
+
+                // Nach Startdatum sortieren, damit die Liste übersichtlich bleibt
+                state.value.ferien.sort((a, b) => a.von.localeCompare(b.von));
+
+                neueFerien.value = { name: "", von: "", bis: "" };
+            };
+
+            const entferneFerien = (idx) => {
+                state.value.ferien.splice(idx, 1);
+            };
+
+            // =========================================================================
+            // EINSTELLUNGEN: ÜBERSICHT EINGEFÄRBTER TAGE/STUNDEN (NEU)
+            // =========================================================================
+            const eingefaerbteTage = computed(() => {
+                return Object.entries(state.value.farben.tage)
+                    .filter(([datum, farbe]) => !!farbe)
+                    .map(([datum, farbe]) => ({ datum, farbe }))
+                    .sort((a, b) => a.datum.localeCompare(b.datum));
+            });
+
+            const eingefaerbteStunden = computed(() => {
+                return Object.entries(state.value.farben.stunden)
+                    .filter(([key, farbe]) => !!farbe)
+                    .map(([key, farbe]) => {
+                        const lastUnderscoreIdx = key.lastIndexOf("_");
+                        const datum = key.substring(0, lastUnderscoreIdx);
+                        const stunde = key.substring(lastUnderscoreIdx + 1);
+                        return { key, datum, stunde, farbe };
+                    })
+                    .sort((a, b) => a.key.localeCompare(b.key));
+            });
+
+            // =========================================================================
+            // EINSTELLUNGEN: STUNDENPLAN-VORLAGEN-EDITOR (NEU)
+            // =========================================================================
+            const vorlageWochentage = [
+                { key: "Mo", name: "Montag" },
+                { key: "Di", name: "Dienstag" },
+                { key: "Mi", name: "Mittwoch" },
+                { key: "Do", name: "Donnerstag" },
+                { key: "Fr", name: "Freitag" }
+            ];
+
+            // Liefert (und erzeugt bei Bedarf) den Vorlage-Eintrag für einen Wochentag/Stunde,
+            // damit v-model direkt darauf binden kann.
+            const getVorlageEintrag = (wochentagKey, stundeNo) => {
+                const key = `${wochentagKey}_${stundeNo}`;
+                if (!state.value.stundenplan.vorlage[key]) {
+                    state.value.stundenplan.vorlage[key] = { fach: "", klasse: "" };
+                }
+                return state.value.stundenplan.vorlage[key];
+            };
+
+            const showSchuelerNotizModal = ref(false);
+            const showLibrarySelection = ref(false);
+            const showSchuelerModal = ref(false);
+            const showBibliothekModal = ref(false);
+            const showInfoModal = ref(false);
+            const settingsTab = ref('schuljahr');
+            const neueFerien = ref({ name: "", von: "", bis: "" });
+            const vorlageUebernahmeMessage = ref("");
+            const showArchivModal = ref(false);
+            const showBackupModal = ref(false); 
+            const backupMessage = ref(""); 
+
+            const neueNotiz = ref({ schuelerId: "", text: "" });
+            const selectedSchuelerId = ref("s1");
+            const suchBegriff = ref("");
+            const selectedPlanInfo = ref(null);
+            const selectedThemenOrdner = ref("Allgemein");
+            
+            // Neue reaktive Variablen für den inline Plan-Editor
+            const activeBibPlan = ref(null);
+            const activeBibPlanOrdner = ref("");
+            const bibEditMode = ref(false);
+            const neuerOrdnerName = ref("");
+            const neuerPlanTitelMap = ref({});
+            const neuerLinkTitel = ref("");
+            const neuerLinkUrl = ref("");
+
+            // Inline Schüleraufnahme (Keine nervigen Prompts!)
+            const neuerSchuelerName = ref("");
+            const neuerSchuelerKlasse = ref("");
+
+            // Neue Datenstrukturen für Schülerakte
+            const neueNote = ref({ fach: "", typ: "Klassenarbeit", note: "", bemerkung: "", datum: new Date().toISOString().slice(0, 10) });
+            const neuerFoerderplan = ref({ titel: "", inhalt: "" });
+
+            // Reaktive Variable für die Sicherheitslöschung
+            const activeDeleteConfirm = ref({ type: null, id: null });
+
+            // Erzeugt einen leeren Slot mit Vorlage-Fallback für Fach/Klasse
+            const erzeugeLeerenSlot = (datum, stundeNo) => {
+                const d = new Date(datum + "T00:00:00");
+                const wochentagIdx = (d.getDay() + 6) % 7; // Mo=0..Fr=4
+                const vorlageKey = `${VORLAGE_KEYS[wochentagIdx]}_${stundeNo}`;
+                const vorlage = state.value.stundenplan.vorlage[vorlageKey];
+
+                return {
+                    fach: vorlage ? vorlage.fach : "Freistunde",
+                    klasse: vorlage ? vorlage.klasse : "-",
+                    kurzeintrag: "",
+                    planungLink: "",
+                    planungId: "",
+                    planungOrdner: "",
+                    freitext: "",
+                    themenOrdner: "Allgemein",
+                    sketches: [],
+                    farbe: ""
+                };
+            };
+
+            // Wendet die aktuelle Vorlage auf alle Tage zwischen heute und Schuljahresende an,
+            // OHNE bereits individuell befüllte Stunden zu überschreiben (Notizen, Termine,
+            // Skizzen, verknüpfte Planungen bleiben unangetastet).
+            const uebernehmeVorlageFuerRestlichesSchuljahr = () => {
+                const heute = toISODate(new Date());
+                const start = heute < state.value.schuljahr.start ? state.value.schuljahr.start : heute;
+                const ende = state.value.schuljahr.ende;
+
+                let aktualisiert = 0;
+                let datum = start;
+                let iterationen = 0;
+                const MAX_ITERATIONEN = 800; // Sicherheitsgrenze (~ mehr als 3 Schuljahre an Tagen)
+
+                while (datum <= ende && iterationen < MAX_ITERATIONEN) {
+                    iterationen++;
+                    const d = new Date(datum + "T00:00:00");
+                    const wochentagIdx = (d.getDay() + 6) % 7; // Mo=0..So=6
+
+                    if (wochentagIdx <= 4) { // nur Mo-Fr
+                        const wtKey = VORLAGE_KEYS[wochentagIdx];
+
+                        for (let stundeNo = 1; stundeNo <= 6; stundeNo++) {
+                            const vorlageKey = `${wtKey}_${stundeNo}`;
+                            const vorlage = state.value.stundenplan.vorlage[vorlageKey];
+                            if (!vorlage || (!vorlage.fach && !vorlage.klasse)) continue;
+
+                            const slotKey = `${datum}_${stundeNo}`;
+                            const bestehend = state.value.stundenplan.daten[slotKey];
+
+                            const hatEigeneInhalte = bestehend && (
+                                bestehend.kurzeintrag || bestehend.planungId || bestehend.freitext ||
+                                (bestehend.sketches && bestehend.sketches.length > 0)
+                            );
+
+                            if (hatEigeneInhalte) continue; // Bestehendes nicht überschreiben
+
+                            if (!bestehend) {
+                                state.value.stundenplan.daten[slotKey] = erzeugeLeerenSlot(datum, stundeNo);
+                            }
+                            // Fach/Klasse aus Vorlage übernehmen
+                            state.value.stundenplan.daten[slotKey].fach = vorlage.fach || "Freistunde";
+                            state.value.stundenplan.daten[slotKey].klasse = vorlage.klasse || "";
+                            aktualisiert++;
+                        }
+                    }
+
+                    datum = addDays(datum, 1);
+                }
+
+                vorlageUebernahmeMessage.value = `✔️ ${aktualisiert} Stunden aktualisiert.`;
+                setTimeout(() => { vorlageUebernahmeMessage.value = ""; }, 5000);
+            };
+
+
+            const activeSlotData = computed(() => {
+                const { datum, stunde } = state.value.ui.activeSlot;
+                if (!datum || !stunde) {
+                    return erzeugeLeerenSlot(aktuelleWoche.value, 1);
+                }
+                const key = `${datum}_${stunde}`;
+                if (!state.value.stundenplan.daten[key]) {
+                    state.value.stundenplan.daten[key] = erzeugeLeerenSlot(datum, stunde);
+                }
+                return state.value.stundenplan.daten[key];
+            });
+
+            // Holt das selektierte Schülerobjekt inklusive aller erweiterten Array-Daten
+            const getSelectedSchueler = computed(() => {
+                return state.value.schueler.schuelerListe.find(s => s.id === selectedSchuelerId.value) || null;
+            });
+
+            const hatAktiveInhalte = computed(() => {
+                return state.value.ui.activeFields.length > 0;
+            });
+
+            // Stunde antippen & öffnen
+            const oeffneStunde = (datum, stundeNo) => {
+                state.value.ui.activeSlot = { datum, stunde: stundeNo };
+                state.value.ui.showSidebar = true;
+                state.value.ui.showCompactNotesPanel = false;
+
+                const data = activeSlotData.value;
+                const fields = [];
+                if (data.kurzeintrag) fields.push('kurzeintrag');
+                if (data.planungId) fields.push('planung');
+                if (data.freitext) fields.push('notiz');
+                if (data.sketches && data.sketches.length > 0) fields.push('sketch');
+                
+                state.value.ui.activeFields = fields;
+            };
+
+            const isStundeSelected = (datum, stundeNo) => {
+                return state.value.ui.activeSlot.datum === datum && state.value.ui.activeSlot.stunde === stundeNo && state.value.ui.showSidebar;
+            };
+
+            // Holt Fach mit Fallback auf die Wochenvorlage, falls noch kein konkreter Eintrag existiert
+            const getSlotFach = (datum, stundeNo) => {
+                const key = `${datum}_${stundeNo}`;
+                if (state.value.stundenplan.daten[key]) {
+                    return state.value.stundenplan.daten[key].fach;
+                }
+                const d = new Date(datum + "T00:00:00");
+                const wochentagIdx = (d.getDay() + 6) % 7;
+                const vorlageKey = `${VORLAGE_KEYS[wochentagIdx]}_${stundeNo}`;
+                const vorlage = state.value.stundenplan.vorlage[vorlageKey];
+                return vorlage ? vorlage.fach : "Freistunde";
+            };
+
+            const getSlotKlasse = (datum, stundeNo) => {
+                const fach = getSlotFach(datum, stundeNo);
+                if (fach === "Freistunde") return "";
+                const key = `${datum}_${stundeNo}`;
+                if (state.value.stundenplan.daten[key]) {
+                    return state.value.stundenplan.daten[key].klasse;
+                }
+                const d = new Date(datum + "T00:00:00");
+                const wochentagIdx = (d.getDay() + 6) % 7;
+                const vorlageKey = `${VORLAGE_KEYS[wochentagIdx]}_${stundeNo}`;
+                const vorlage = state.value.stundenplan.vorlage[vorlageKey];
+                return vorlage ? vorlage.klasse : "";
+            };
+
+            const getSlotData = (datum, stundeNo) => {
+                return state.value.stundenplan.daten[`${datum}_${stundeNo}`] || null;
+            };
+
+            const getStundenZeit = (stundeNo) => {
+                const zeiten = { 1: "08:00", 2: "08:45", 3: "09:50", 4: "10:35", 5: "11:40", 6: "12:25" };
+                return zeiten[stundeNo];
+            };
+
+            // Module in Sidebar verwalten
+            const addField = (fieldName) => {
+                if (!state.value.ui.activeFields.includes(fieldName)) {
+                    state.value.ui.activeFields.push(fieldName);
+                }
+            };
+
+            const removeField = (fieldName) => {
+                state.value.ui.activeFields = state.value.ui.activeFields.filter(f => f !== fieldName);
+                if (fieldName === 'kurzeintrag') activeSlotData.value.kurzeintrag = "";
+                if (fieldName === 'planung') {
+                    activeSlotData.value.planungLink = "";
+                    activeSlotData.value.planungId = "";
+                    activeSlotData.value.planungOrdner = "";
+                }
+                if (fieldName === 'notiz') activeSlotData.value.freitext = "";
+                if (fieldName === 'sketch') {
+                    activeSlotData.value.sketches = [];
+                }
+            };
+
+            // Schülernotizen Actions
+            const oeffneSchuelerNotizModal = () => {
+                neueNotiz.value = { schuelerId: "", text: "" };
+                showSchuelerNotizModal.value = true;
+            };
+
+            const speichereSchuelerNotiz = () => {
+                if (!neueNotiz.value.schuelerId || !neueNotiz.value.text.trim()) return;
+                const schueler = state.value.schueler.schuelerListe.find(s => s.id === neueNotiz.value.schuelerId);
+                const { datum, stunde } = state.value.ui.activeSlot;
+
+                state.value.schueler.schuelerNotizen.push({
+                    id: "n_" + Date.now(),
+                    schuelerId: neueNotiz.value.schuelerId,
+                    schuelerName: schueler.name,
+                    datum_key: datum,
+                    stunde: stunde,
+                    stundeDetails: `${activeSlotData.value.fach} (${formatDatumLang(datum)}, ${stunde}. Std.)`,
+                    datum: formatDatumLang(datum),
+                    text: neueNotiz.value.text
+                });
+
+                showSchuelerNotizModal.value = false;
+                state.value.ui.showCompactNotesPanel = true;
+            };
+
+            const getSchuelerNotizenAnzahl = (datum, stunde) => {
+                return state.value.schueler.schuelerNotizen.filter(n => n.datum_key === datum && n.stunde === stunde).length;
+            };
+
+            const getSchuelerNotizen = (datum, stunde) => {
+                return state.value.schueler.schuelerNotizen.filter(n => n.datum_key === datum && n.stunde === stunde);
+            };
+
+            // Planungsbibliothek Auswahl aus der Sidebar
+            const waehlePlanung = (ordnerName, planId, planTitel) => {
+                activeSlotData.value.planungLink = planTitel;
+                activeSlotData.value.planungId = planId;
+                activeSlotData.value.planungOrdner = ordnerName;
+                showLibrarySelection.value = false;
+                addField('planung');
+            };
+
+            const getSchuelerNameById = (id) => {
+                const s = state.value.schueler.schuelerListe.find(x => x.id === id);
+                return s ? s.name : "Unbekannt";
+            };
+
+            const gefilterteSchuelerNotizen = computed(() => {
+                let list = state.value.schueler.schuelerNotizen.filter(n => n.schuelerId === selectedSchuelerId.value);
+                if (suchBegriff.value.trim() !== "") {
+                    list = list.filter(n => n.text.toLowerCase().includes(suchBegriff.value.toLowerCase()));
+                }
+                return list;
+            });
+
+            // Notizarchiv Logik
+            const erstelleOrdner = () => {
+                if (neuerOrdnerName.value.trim() !== "" && !state.value.archiv.themenOrdnerList.includes(neuerOrdnerName.value.trim())) {
+                    state.value.archiv.themenOrdnerList.push(neuerOrdnerName.value.trim());
+                    selectedThemenOrdner.value = neuerOrdnerName.value.trim();
+                    neuerOrdnerName.value = "";
+                }
+            };
+
+            const getNotesInFolder = (folderName) => {
+                const results = [];
+                for (const key in state.value.stundenplan.daten) {
+                    const data = state.value.stundenplan.daten[key];
+                    if (data.freitext && data.freitext.trim() !== "") {
+                        const currentFolder = data.themenOrdner || "Allgemein";
+                        if (currentFolder === folderName) {
+                            const lastUnderscoreIdx = key.lastIndexOf("_");
+                            const datumKey = key.substring(0, lastUnderscoreIdx);
+                            const stunde = key.substring(lastUnderscoreIdx + 1);
+                            results.push({
+                                key,
+                                text: data.freitext,
+                                datum: formatDatumLang(datumKey),
+                                currentFolder,
+                                stundenName: `${data.fach}, ${stunde}. Std.`,
+                                klasse: `Klasse ${data.klasse}`
+                            });
+                        }
+                    }
+                }
+                results.sort((a, b) => b.key.localeCompare(a.key));
+                return results;
+            };
+
+            const getNotesCountInFolder = (folderName) => {
+                let count = 0;
+                for (const key in state.value.stundenplan.daten) {
+                    const data = state.value.stundenplan.daten[key];
+                    if (data.freitext && data.freitext.trim() !== "" && (data.themenOrdner || "Allgemein") === folderName) {
+                        count++;
+                    }
+                }
+                return count;
+            };
+
+            const verschiebeNotiz = (slotKey, newFolderName) => {
+                if (state.value.stundenplan.daten[slotKey]) {
+                    state.value.stundenplan.daten[slotKey].themenOrdner = newFolderName;
+                }
+            };
+            // ==========================================
+            // PLANUNGSBIBLIOTHEK EDITIERUNG & NAVIGATION
+            // ==========================================
+            const oeffneBibliothekZentral = () => {
+                activeBibPlan.value = null;
+                activeBibPlanOrdner.value = "";
+                bibEditMode.value = false;
+                showBibliothekModal.value = true;
+            };
+
+            const waehlePlanAusBib = (ordnerName, planId) => {
+                const ordner = state.value.bibliothek.ordner.find(o => o.name === ordnerName);
+                if (ordner) {
+                    const plan = ordner.plaene.find(p => p.id === planId);
+                    if (plan) {
+                        activeBibPlan.value = plan;
+                        activeBibPlanOrdner.value = ordnerName;
+                        bibEditMode.value = false;
+                    }
+                }
+            };
+
+            const oeffnePlanungDirektInBib = (planId) => {
+                for (const ordner of state.value.bibliothek.ordner) {
+                    const plan = ordner.plaene.find(p => p.id === planId);
+                    if (plan) {
+                        activeBibPlan.value = plan;
+                        activeBibPlanOrdner.value = ordner.name;
+                        bibEditMode.value = false;
+                        showBibliothekModal.value = true;
+                        break;
+                    }
+                }
+            };
+
+            const erstelleNeuePlanung = (ordnerName) => {
+                const titel = neuerPlanTitelMap.value[ordnerName];
+                if (!titel || titel.trim() === "") return;
+
+                const ordner = state.value.bibliothek.ordner.find(o => o.name === ordnerName);
+                if (ordner) {
+                    const neuePlanung = {
+                        id: "p_" + Date.now(),
+                        titel: titel.trim(),
+                        inhalt: "",
+                        links: [],
+                        tabelle: []
+                    };
+                    if (!ordner.plaene) ordner.plaene = [];
+                    ordner.plaene.push(neuePlanung);
+                    
+                    activeBibPlan.value = neuePlanung;
+                    activeBibPlanOrdner.value = ordnerName;
+                    bibEditMode.value = true;
+
+                    neuerPlanTitelMap.value[ordnerName] = "";
+                }
+            };
+
+            const fuegeLinkHinzu = () => {
+                if (!neuerLinkTitel.value.trim() || !neuerLinkUrl.value.trim()) return;
+                
+                let url = neuerLinkUrl.value.trim();
+                if (!/^https?:\/\//i.test(url)) {
+                    url = "https://" + url;
+                }
+
+                if (!activeBibPlan.value.links) activeBibPlan.value.links = [];
+                activeBibPlan.value.links.push({
+                    titel: neuerLinkTitel.value.trim(),
+                    url: url
+                });
+
+                neuerLinkTitel.value = "";
+                neuerLinkUrl.value = "";
+            };
+
+            const loescheLink = (idx) => {
+                activeBibPlan.value.links.splice(idx, 1);
+            };
+
+            const fuegeTabellenZeileHinzu = () => {
+                if (!activeBibPlan.value.tabelle) activeBibPlan.value.tabelle = [];
+                activeBibPlan.value.tabelle.push({
+                    zeit: "10'",
+                    phase: "Neue Phase",
+                    inhalt: "",
+                    methode: "Plenum"
+                });
+            };
+
+            const loescheTabellenZeile = (idx) => {
+                activeBibPlan.value.tabelle.splice(idx, 1);
+            };
+
+
+            // ==========================================
+            // SCHÜLER-ORGANISATION & ERWEITERUNGEN
+            // ==========================================
+            const fuegeSchuelerHinzu = () => {
+                if (!neuerSchuelerName.value.trim()) return;
+                
+                const klasse = neuerSchuelerKlasse.value.trim() || "Allgemein";
+                const neuId = "s_" + Date.now();
+
+                state.value.schueler.schuelerListe.push({
+                    id: neuId,
+                    name: neuerSchuelerName.value.trim(),
+                    klasse: klasse,
+                    geburtsdatum: "",
+                    lebenssituation: "",
+                    noten: [],
+                    foerderplaene: [],
+                    ziele: []
+                });
+
+                selectedSchuelerId.value = neuId;
+                neuerSchuelerName.value = "";
+                neuerSchuelerKlasse.value = "";
+            };
+
+            // Noten hinzufügen
+            const fuegeNoteHinzu = () => {
+                if (!neueNote.value.fach.trim() || !neueNote.value.note.trim()) return;
+                
+                getSelectedSchueler.value.noten.push({
+                    id: "g_" + Date.now(),
+                    fach: neueNote.value.fach.trim(),
+                    typ: neueNote.value.typ,
+                    note: neueNote.value.note.trim(),
+                    bemerkung: neueNote.value.bemerkung.trim(),
+                    datum: neueNote.value.datum
+                });
+
+                // Reset Form
+                neueNote.value.fach = "";
+                neueNote.value.note = "";
+                neueNote.value.bemerkung = "";
+            };
+
+            // Förderplan manuell anlegen und sichern
+            const speichereManuellenFoerderplan = () => {
+                if (!neuerFoerderplan.value.titel.trim() || !neuerFoerderplan.value.inhalt.trim()) return;
+
+                getSelectedSchueler.value.foerderplaene.push({
+                    id: "fp_" + Date.now(),
+                    titel: neuerFoerderplan.value.titel.trim(),
+                    inhalt: neuerFoerderplan.value.inhalt.trim(),
+                    datum: new Date().toISOString().slice(0, 10)
+                });
+
+                neuerFoerderplan.value.titel = "";
+                neuerFoerderplan.value.inhalt = "";
+                state.value.ui.showManualFoerderEditor = false;
+            };
+
+            // FÖRDERPLAN-DATEI EINLESEN (Echter File Import für iPad)
+            const importFoerderplan = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const textContent = e.target.result;
+                    // Verwende den Dateinamen ohne Endung als Standardtitel
+                    const standardTitel = file.name.replace(/\.[^/.]+$/, "");
+
+                    getSelectedSchueler.value.foerderplaene.push({
+                        id: "fp_" + Date.now(),
+                        titel: standardTitel,
+                        inhalt: textContent,
+                        datum: new Date().toISOString().slice(0, 10)
+                    });
+                };
+                reader.readAsText(file);
+            };
+
+            // Öffnet den readonly Förderplan-Betrachter
+            const oeffneFoerderplanReadOnly = (planObj) => {
+                state.value.ui.activeFoerderplanReadOnly = planObj;
+            };
+
+            // Formatierungshilfe für Datumsanzeigen (z.B. YYYY-MM-DD -> DD.MM.YYYY)
+            const formatDatum = (val) => {
+                if (!val) return "-";
+                const parts = val.split("-");
+                if (parts.length === 3) {
+                    return `${parts[2]}.${parts[1]}.${parts[0]}`;
+                }
+                return val;
+            };
+
+
+            // =========================================================================
+            // ZIELE-TRACKER (NEU): Aktuelle/bisherige Ziele, tägliche Smiley-Bewertung,
+            // Mini-Graph & Tabelle pro Ziel
+            // =========================================================================
+            const neuesZiel = ref({ titel: "" });
+            const offeneZielAuswertungen = ref([]);
+
+            const heuteFormatiert = computed(() => formatDatum(toISODate(new Date())));
+
+            // Aktive Ziele des aktuell ausgewählten Schülers
+            const aktiveZiele = computed(() => {
+                if (!getSelectedSchueler.value || !getSelectedSchueler.value.ziele) return [];
+                return getSelectedSchueler.value.ziele.filter(z => z.status === 'aktiv');
+            });
+
+            // Abgeschlossene Ziele, neuestes zuerst
+            const bisherigeZiele = computed(() => {
+                if (!getSelectedSchueler.value || !getSelectedSchueler.value.ziele) return [];
+                return getSelectedSchueler.value.ziele
+                    .filter(z => z.status === 'abgeschlossen')
+                    .slice()
+                    .sort((a, b) => (b.endDatum || "").localeCompare(a.endDatum || ""));
+            });
+
+            const fuegeZielHinzu = () => {
+                if (!neuesZiel.value.titel.trim()) return;
+                if (!getSelectedSchueler.value.ziele) getSelectedSchueler.value.ziele = [];
+
+                getSelectedSchueler.value.ziele.push({
+                    id: "ziel_" + Date.now(),
+                    titel: neuesZiel.value.titel.trim(),
+                    status: "aktiv",
+                    startDatum: toISODate(new Date()),
+                    endDatum: null,
+                    bewertungen: []
+                });
+
+                neuesZiel.value.titel = "";
+            };
+
+            const schliesseZielAb = (zielId) => {
+                const ziel = getSelectedSchueler.value.ziele.find(z => z.id === zielId);
+                if (!ziel) return;
+                ziel.status = "abgeschlossen";
+                ziel.endDatum = toISODate(new Date());
+            };
+
+            const reaktiviereZiel = (zielId) => {
+                const ziel = getSelectedSchueler.value.ziele.find(z => z.id === zielId);
+                if (!ziel) return;
+                ziel.status = "aktiv";
+                ziel.endDatum = null;
+            };
+
+            // Liefert die heutige Bewertung (1-5) für ein Ziel, oder null wenn noch nicht bewertet
+            const getHeutigeBewertung = (ziel) => {
+                const heute = toISODate(new Date());
+                const eintrag = (ziel.bewertungen || []).find(b => b.datum === heute);
+                return eintrag ? eintrag.wert : null;
+            };
+
+            // Setzt (oder überschreibt) die heutige Bewertung für ein Ziel
+            const setzeZielBewertung = (ziel, wert) => {
+                if (!ziel.bewertungen) ziel.bewertungen = [];
+                const heute = toISODate(new Date());
+                const bestehend = ziel.bewertungen.find(b => b.datum === heute);
+                if (bestehend) {
+                    bestehend.wert = wert;
+                } else {
+                    ziel.bewertungen.push({ datum: heute, wert });
+                    ziel.bewertungen.sort((a, b) => a.datum.localeCompare(b.datum));
+                }
+            };
+
+            const toggleZielAuswertung = (zielId) => {
+                const idx = offeneZielAuswertungen.value.indexOf(zielId);
+                if (idx >= 0) {
+                    offeneZielAuswertungen.value.splice(idx, 1);
+                } else {
+                    offeneZielAuswertungen.value.push(zielId);
+                }
+            };
+
+            // 5 Smiley-Abstufungen für die Bewertung
+            const ZIEL_SMILEYS = ['😢', '🙁', '😐', '🙂', '😄'];
+            const ZIEL_SMILEY_LABELS = ['Sehr schlecht', 'Schlecht', 'Mittel', 'Gut', 'Sehr gut'];
+
+            const zielSmileyEmoji = (wert) => ZIEL_SMILEYS[Math.min(Math.max(wert, 1), 5) - 1];
+            const zielSmileyLabel = (wert) => ZIEL_SMILEY_LABELS[Math.min(Math.max(wert, 1), 5) - 1];
+
+            // Berechnet die Punktkoordinaten für den Mini-Liniengraphen (ViewBox 300x100)
+            // Wert 1 -> y=85 (unten), Wert 5 -> y=15 (oben). X gleichmäßig über die Breite verteilt.
+            const zielGraphKreise = (ziel) => {
+                const eintraege = ziel.bewertungen || [];
+                if (eintraege.length === 0) return [];
+                const n = eintraege.length;
+                return eintraege.map((b, i) => {
+                    const x = n === 1 ? 150 : (i / (n - 1)) * 280 + 10;
+                    const y = 85 - ((b.wert - 1) / 4) * 70;
+                    return { x, y };
+                });
+            };
+
+            const zielGraphPunkte = (ziel) => {
+                return zielGraphKreise(ziel).map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+            };
+
+
+            // =========================================================================
+            // DYNAMISCHE LOESCH-ENGINE (Zwei-Klick Schutz)                             
+            // =========================================================================
+            const isConfirming = (type, id) => {
+                return activeDeleteConfirm.value.type === type && activeDeleteConfirm.value.id === id;
+            };
+
+            const triggerDelete = (type, id) => {
+                if (!isConfirming(type, id)) {
+                    activeDeleteConfirm.value = { type, id };
+                    setTimeout(() => {
+                        if (activeDeleteConfirm.value.type === type && activeDeleteConfirm.value.id === id) {
+                            activeDeleteConfirm.value = { type: null, id: null };
+                        }
+                    }, 4000);
+                    return;
+                }
+
+                activeDeleteConfirm.value = { type: null, id: null }; // Reset
+
+                if (type === 'schueler') {
+                    state.value.schueler.schuelerListe = state.value.schueler.schuelerListe.filter(s => s.id !== id);
+                    state.value.schueler.schuelerNotizen = state.value.schueler.schuelerNotizen.filter(n => n.schuelerId !== id);
+                    if (selectedSchuelerId.value === id) {
+                        selectedSchuelerId.value = state.value.schueler.schuelerListe[0]?.id || "";
+                    }
+                } 
+                else if (type === 'notizSchueler') {
+                    state.value.schueler.schuelerNotizen = state.value.schueler.schuelerNotizen.filter(n => n.id !== id);
+                } 
+                else if (type === 'ordnerBib') {
+                    state.value.bibliothek.ordner = state.value.bibliothek.ordner.filter(o => o.name !== id);
+                    if (activeBibPlanOrdner.value === id) {
+                        activeBibPlan.value = null;
+                        activeBibPlanOrdner.value = "";
+                    }
+                } 
+                else if (type === 'planBib') {
+                    state.value.bibliothek.ordner.forEach(ordner => {
+                        ordner.plaene = ordner.plaene.filter(p => p.id !== id);
+                    });
+                    if (activeBibPlan.value?.id === id) {
+                        activeBibPlan.value = null;
+                    }
+                } 
+                else if (type === 'ordnerArchiv') {
+                    state.value.archiv.themenOrdnerList = state.value.archiv.themenOrdnerList.filter(o => o !== id);
+                    for (const key in state.value.stundenplan.daten) {
+                        if (state.value.stundenplan.daten[key].themenOrdner === id) {
+                            state.value.stundenplan.daten[key].themenOrdner = "Allgemein";
+                        }
+                    }
+                    if (selectedThemenOrdner.value === id) {
+                        selectedThemenOrdner.value = "Allgemein";
+                    }
+                } 
+                else if (type === 'notizArchiv') {
+                    if (state.value.stundenplan.daten[id]) {
+                        state.value.stundenplan.daten[id].freitext = "";
+                    }
+                }
+                // Neue spezifische Löschungen für Schülerakte
+                else if (type === 'note') {
+                    getSelectedSchueler.value.noten = getSelectedSchueler.value.noten.filter(g => g.id !== id);
+                }
+                else if (type === 'foerderplan') {
+                    getSelectedSchueler.value.foerderplaene = getSelectedSchueler.value.foerderplaene.filter(fp => fp.id !== id);
+                }
+            };
+
+
+            // ==========================================
+            // FIX: VEKTORISIERTE SVG-ZEICHEN LOGIK (statt Canvas/Koordinaten-Arrays)
+            // Speichert Striche als kompakte SVG-Pfad-Strings ("M x,y L x,y ...")
+            // ViewBox ist fest 300x160 -> Koordinaten sind geräteunabhängig
+            // ==========================================
+            const isDrawing = ref(false);
+            let currentPoints = [];
+            const currentPathStr = ref("");
+
+            const pointsToPath = (points) => {
+                if (points.length < 2) return "";
+                let d = `M${points[0].x.toFixed(1)},${points[0].y.toFixed(1)}`;
+                for (let i = 1; i < points.length; i++) {
+                    d += ` L${points[i].x.toFixed(1)},${points[i].y.toFixed(1)}`;
+                }
+                return d;
+            };
+
+            const getRelPos = (evt) => {
+                const svgEl = evt.currentTarget;
+                const rect = svgEl.getBoundingClientRect();
+                const touch = evt.touches && evt.touches.length > 0 ? evt.touches[0] : evt;
+                return {
+                    x: ((touch.clientX - rect.left) / rect.width) * 300,
+                    y: ((touch.clientY - rect.top) / rect.height) * 160
+                };
+            };
+
+            const startDraw = (e) => {
+                isDrawing.value = true;
+                currentPoints = [getRelPos(e)];
+                currentPathStr.value = "";
+            };
+
+            const moveDraw = (e) => {
+                if (!isDrawing.value) return;
+                currentPoints.push(getRelPos(e));
+                currentPathStr.value = pointsToPath(currentPoints);
+            };
+
+            const endDraw = () => {
+                if (isDrawing.value && currentPoints.length > 1) {
+                    if (!activeSlotData.value.sketches) activeSlotData.value.sketches = [];
+                    activeSlotData.value.sketches.push(pointsToPath(currentPoints));
+                }
+                isDrawing.value = false;
+                currentPathStr.value = "";
+                currentPoints = [];
+            };
+
+            const clearCanvas = () => {
+                activeSlotData.value.sketches = [];
+            };
+
+
+            // =========================================================================
+            // CAPACITOR READY EXPORT & IMPORT (DATENSICHERUNG)                        
+            // =========================================================================
+            const exportData = async () => {
+                const isCapacitor = typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Filesystem;
+                const dataStr = isCapacitor 
+                    ? (await Capacitor.Plugins.Preferences.get({ key: STORAGE_KEY })).value 
+                    : localStorage.getItem(STORAGE_KEY);
+
+                if (!dataStr) {
+                    backupMessage.value = "❌ Keine Daten zum Sichern vorhanden!";
+                    return;
+                }
+
+                const dateToday = new Date().toISOString().slice(0,10);
+                const fileName = `schulplaner_backup_${dateToday}.json`;
+
+                if (isCapacitor) {
+                    try {
+                        const { Filesystem, Share } = Capacitor.Plugins;
+                        const result = await Filesystem.writeFile({
+                            path: fileName,
+                            data: dataStr,
+                            directory: 'CACHE',
+                            encoding: 'utf8'
+                        });
+
+                        await Share.share({
+                            title: "Mein Schulplaner Backup",
+                            url: result.uri
+                        });
+                        backupMessage.value = "✔️ Teilen-Menü geöffnet!";
+                    } catch (err) {
+                        backupMessage.value = "❌ Fehler beim Teilen unter iOS.";
+                        console.error(err);
+                    }
+                } else {
+                    const blob = new Blob([dataStr], { type: "application/json" });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.download = fileName;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    backupMessage.value = "✔️ Backup heruntergeladen! Sichere es lokal.";
+                }
+            };
+
+            const importData = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const parsed = JSON.parse(e.target.result);
+                        if (parsed.stundenplan && parsed.schueler) {
+                            state.value.einstellungen = parsed.einstellungen || state.value.einstellungen;
+                            if (typeof state.value.einstellungen.darkMode !== 'boolean') state.value.einstellungen.darkMode = false;
+                            state.value.schuljahr = parsed.schuljahr || state.value.schuljahr;
+                            state.value.ferien = parsed.ferien || state.value.ferien;
+                            state.value.stundenplan = parsed.stundenplan;
+                            state.value.farben = parsed.farben || state.value.farben;
+                            if (!state.value.farben.tage) state.value.farben.tage = {};
+                            if (!state.value.farben.stunden) state.value.farben.stunden = {};
+                            if (!Array.isArray(state.value.ferien)) state.value.ferien = [];
+                            state.value.schueler = parsed.schueler;
+                            state.value.bibliothek = parsed.bibliothek || state.value.bibliothek;
+                            state.value.archiv = parsed.archiv || state.value.archiv;
+                            
+                            await saveData(); 
+                            backupMessage.value = "🎉 Daten erfolgreich eingespielt! Die App lädt neu...";
+                            
+                            setTimeout(() => {
+                                location.reload(); 
+                            }, 1500);
+                        } else {
+                            backupMessage.value = "❌ Fehler: Ungültiges Backup-Format.";
+                        }
+                    } catch (err) {
+                        backupMessage.value = "❌ Fehler beim Einlesen der Datei.";
+                        console.error(err);
+                    }
+                };
+                reader.readAsText(file);
+            };
+
+
+            return {
+                state,
+                darkMode,
+                showSchuelerNotizModal,
+                showLibrarySelection,
+                showSchuelerModal,
+                showBibliothekModal,
+                showInfoModal,
+                settingsTab,
+                neueFerien,
+                vorlageUebernahmeMessage,
+                showArchivModal,
+                showBackupModal,
+                backupMessage,
+                neueNotiz,
+                selectedSchuelerId,
+                suchBegriff,
+                selectedPlanInfo,
+                selectedThemenOrdner,
+
+                // Kalender / Wochen-Navigation (NEU)
+                aktuelleWoche,
+                wochenTage,
+                schuljahrLabel,
+                ferienDieserWoche,
+                wocheVorOderZurueck,
+                springeZuHeute,
+                formatTagDatum,
+                formatTagLangmitDatum,
+                formatDatumLang,
+                getKalenderwoche,
+                addDays,
+
+                // Farben (NEU)
+                farbpalette,
+                getTagFarbe,
+                setzeTagFarbe,
+                getStundeFarbe,
+                setzeStundeFarbe,
+                hatStundeFarbe,
+                getTagFarbeStyle,
+                getTagTextClass,
+                getStundeFarbeStyle,
+
+                // Ferienverwaltung & Übersichten (NEU)
+                fuegeFerienHinzu,
+                entferneFerien,
+                eingefaerbteTage,
+                eingefaerbteStunden,
+
+                // Stundenplan-Vorlagen-Editor (NEU)
+                vorlageWochentage,
+                getVorlageEintrag,
+                uebernehmeVorlageFuerRestlichesSchuljahr,
+                
+                // Refs & Methoden für Planungsbibliothek
+                activeBibPlan,
+                activeBibPlanOrdner,
+                bibEditMode,
+                neuerOrdnerName,
+                neuerPlanTitelMap,
+                neuerLinkTitel,
+                neuerLinkUrl,
+                oeffneBibliothekZentral,
+                waehlePlanAusBib,
+                oeffnePlanungDirektInBib,
+                erstelleNeuePlanung,
+                fuegeLinkHinzu,
+                loescheLink,
+                fuegeTabellenZeileHinzu,
+                loescheTabellenZeile,
+
+                // Schüleraufnahme, Akte, Noten & Förderpläne
+                neuerSchuelerName,
+                neuerSchuelerKlasse,
+                fuegeSchuelerHinzu,
+                getSelectedSchueler,
+                neueNote,
+                neuerFoerderplan,
+                fuegeNoteHinzu,
+                speichereManuellenFoerderplan,
+                importFoerderplan,
+                oeffneFoerderplanReadOnly,
+                formatDatum,
+
+                // Ziele-Tracker (NEU)
+                neuesZiel,
+                offeneZielAuswertungen,
+                heuteFormatiert,
+                aktiveZiele,
+                bisherigeZiele,
+                fuegeZielHinzu,
+                schliesseZielAb,
+                reaktiviereZiel,
+                getHeutigeBewertung,
+                setzeZielBewertung,
+                toggleZielAuswertung,
+                zielSmileyEmoji,
+                zielSmileyLabel,
+                zielGraphKreise,
+                zielGraphPunkte,
+
+                // Löschen & Bestätigung
+                isConfirming,
+                triggerDelete,
+
+                activeSlotData,
+                hatAktiveInhalte,
+                oeffneStunde,
+                isStundeSelected,
+                getSlotFach,
+                getSlotKlasse,
+                getSlotData,
+                getStundenZeit,
+                addField,
+                removeField,
+                oeffneSchuelerNotizModal,
+                speichereSchuelerNotiz,
+                getSchuelerNotizenAnzahl,
+                getSchuelerNotizen,
+                waehlePlanung,
+                getSchuelerNameById,
+                gefilterteSchuelerNotizen,
+                erstelleOrdner,
+                getNotesInFolder,
+                getNotesCountInFolder,
+                verschiebeNotiz,
+                exportData,
+                importData,
+
+                // SVG-Skizzenlogik (NEU statt Canvas)
+                currentPathStr,
+                startDraw,
+                moveDraw,
+                endDraw,
+                clearCanvas
+            };
+        }
+    }).mount('#app');
+
+    // =========================================================================
+    // PWA: SERVICE WORKER REGISTRIEREN (Offline-Funktion)
+    // =========================================================================
+    // Registriert sw.js, damit alle Assets (HTML, CSS, JS, Icons) gecacht
+    // werden und die App auch ohne Internetverbindung vollständig läuft.
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+                .then((reg) => {
+                    console.log('Service Worker registriert:', reg.scope);
+                })
+                .catch((err) => {
+                    console.error('Service Worker Registrierung fehlgeschlagen:', err);
+                });
+        });
+    }
+</script>
+
+</body>
+</html>
