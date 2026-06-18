@@ -273,7 +273,7 @@
                             <span class="text-xs font-bold text-gray-500 uppercase dark:text-gray-400">✍️ Unterrichts-Notizen (📝)</span>
                             <button @click="removeField('notiz')" class="text-gray-400 hover:text-red-500 text-xs font-bold dark:text-gray-500">Löschen</button>
                         </div>
-                        <textarea v-model="activeSlotData.freitext" rows="4" placeholder="Schreib frei auf..." class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none custom-scroll dark:bg-gray-800 dark:border-gray-700"></textarea>
+                        <textarea v-model="activeSlotData.freitext" rows="4" placeholder="Schreib frei auf..." class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none custom-scroll dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"></textarea>
                     </div>
 
                     <div v-if="state.ui.activeFields.includes('sketch')" class="bg-yellow-50/50 rounded-xl p-3 border border-yellow-100 relative">
@@ -319,8 +319,8 @@
                         <!-- Sub-Tab: Noten für die ganze Klasse -->
                         <div v-if="state.ui.bewertungenTab === 'noten'" class="space-y-3">
                             <div class="grid grid-cols-2 gap-2">
-                                <input type="text" v-model="sammelAssignment.fach" placeholder="Fach" class="border border-gray-200 rounded-lg p-2 text-xs bg-white focus:outline-none dark:bg-gray-800 dark:border-gray-700">
-                                <select v-model="sammelAssignment.typ" class="border border-gray-200 rounded-lg p-2 text-xs bg-white focus:outline-none dark:bg-gray-800 dark:border-gray-700">
+                                <input type="text" v-model="sammelAssignment.fach" placeholder="Fach" class="border border-gray-200 rounded-lg p-2 text-xs bg-white focus:outline-none dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200">
+                                <select v-model="sammelAssignment.typ" class="border border-gray-200 rounded-lg p-2 text-xs bg-white focus:outline-none dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200">
                                     <option value="Klassenarbeit">Klassenarbeit</option>
                                     <option value="Test / Überprüfung">Test</option>
                                     <option value="Mitarbeit">Mitarbeit</option>
