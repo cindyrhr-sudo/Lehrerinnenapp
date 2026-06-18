@@ -328,14 +328,14 @@
                                     <option value="Hausaufgaben">Hausaufgaben</option>
                                 </select>
                             </div>
-                            <input type="text" v-model="sammelAssignment.titel" placeholder="Titel der Arbeit (optional)" class="w-full border border-gray-200 rounded-lg p-2 text-xs bg-white focus:outline-none dark:bg-gray-800 dark:border-gray-700">
+                            <input type="text" v-model="sammelAssignment.titel" placeholder="Titel der Arbeit (optional)" class="w-full border border-gray-200 rounded-lg p-2 text-xs bg-white focus:outline-none dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200">
                             <p class="text-[10px] text-gray-400 dark:text-gray-500">Datum: {{ formatDatumLang(state.ui.activeSlot.datum) }} (aus dieser Stunde)</p>
 
                             <div class="space-y-1.5 max-h-64 overflow-y-auto custom-scroll pr-1">
                                 <div v-for="s in sammelSchuelerInKlasse" :key="s.id" class="flex gap-2 items-center bg-white border border-gray-100 rounded-lg p-2 dark:bg-gray-800 dark:border-gray-700">
                                     <span class="text-xs font-semibold text-gray-700 flex-1 truncate dark:text-gray-200">{{ s.name }}</span>
-                                    <input type="text" v-model="getSammelNotenEingabe(s.id).note" placeholder="Note" class="w-16 border border-gray-200 rounded p-1.5 text-xs bg-stone-50 focus:outline-none dark:bg-gray-900 dark:border-gray-600">
-                                    <input type="text" v-model="getSammelNotenEingabe(s.id).bemerkung" placeholder="Bemerkung" class="flex-1 min-w-0 border border-gray-200 rounded p-1.5 text-xs bg-stone-50 focus:outline-none dark:bg-gray-900 dark:border-gray-600">
+                                    <input type="text" v-model="getSammelNotenEingabe(s.id).note" placeholder="Note" class="w-16 border border-gray-200 rounded p-1.5 text-xs bg-stone-50 focus:outline-none dark:bg-gray-900 dark:border-gray-600 dark:text-gray-200">
+                                    <input type="text" v-model="getSammelNotenEingabe(s.id).bemerkung" placeholder="Bemerkung" class="flex-1 min-w-0 border border-gray-200 rounded p-1.5 text-xs bg-stone-50 focus:outline-none dark:bg-gray-900 dark:border-gray-600 dark:text-gray-200">
                                 </div>
                                 <div v-if="sammelSchuelerInKlasse.length === 0" class="text-center text-xs text-gray-400 py-4 dark:text-gray-500">Keine Kinder in dieser Klasse.</div>
                             </div>
