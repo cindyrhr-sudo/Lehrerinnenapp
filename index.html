@@ -5,18 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Mein Schulplaner</title>
 
-    <!-- ========================================================================= -->
-    <!-- PWA: MANIFEST & THEME                                                     -->
-    <!-- ========================================================================= -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2563eb">
 
-    <!-- ========================================================================= -->
-    <!-- PWA: iOS-SPEZIFISCHE META-TAGS                                            -->
-    <!-- Diese Tags sorgen dafür, dass die App nach "Zum Home-Bildschirm           -->
-    <!-- hinzufügen" im Vollbild (ohne Safari-UI) startet und ein eigenes          -->
-    <!-- Icon/Statusleisten-Design bekommt.                                        -->
-    <!-- ========================================================================= -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Schulplaner">
@@ -24,9 +15,6 @@
     <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
     <link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512.png">
 
-    <!-- ========================================================================= -->
-    <!-- LOKALE ASSETS (offline-fähig - kein CDN nötig)                            -->
-    <!-- ========================================================================= -->
     <script src="js/vue.global.js"></script>
     <link href="css/tailwind.css" rel="stylesheet">
 
@@ -36,19 +24,33 @@
             background-color: #f2f2f7;
             -webkit-tap-highlight-color: transparent;
             transition: background-color 0.2s ease;
-            /* Safe-Area-Insets: verhindert Überlappung mit Notch/Home-Indicator
-               im Standalone-Modus (Vollbild ohne Browser-UI) */
-            #app {
-    box-sizing: border-box;
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
-}
-
+        }
+        /* Safe-Area-Insets auf #app selbst (nicht auf body!), mit box-sizing:border-box
+           damit die Insets INNERHALB der 100vh-Höhe verrechnet werden statt addiert zu
+           werden. Das verhindert das Abschneiden am unteren Rand im Standalone-Modus. */
+        #app {
+            box-sizing: border-box;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
         }
         html.dark body {
             background-color: #222d1e;
+        }
+        /* ===================================================================
+           STUNDENPLAN-ZOOM (Phase 2/3): Nur Zellgröße/Abstand skalieren,
+           NIE die Schriftgröße. --plan-zoom wird per Pinch-Geste gesetzt
+           und kaskadiert von der Grid-Hülle auf alle Kind-Elemente.
+           =================================================================== */
+        .zoom-row {
+            min-height: calc(95px * var(--plan-zoom, 1));
+        }
+        .zoom-pad {
+            padding: calc(0.75rem * var(--plan-zoom, 1));
+        }
+        .zoom-gap {
+            gap: calc(0.75rem * var(--plan-zoom, 1));
         }
         .custom-scroll::-webkit-scrollbar {
             width: 6px;
@@ -64,7 +66,6 @@
         html.dark .custom-scroll::-webkit-scrollbar-thumb {
             background-color: #4b5563;
         }
-        /* Ferien-Streifenmuster für Tageskopf */
         .ferien-stripes {
             background-image: repeating-linear-gradient(
                 45deg,
@@ -74,7 +75,6 @@
                 transparent 12px
             );
         }
-        /* Farbwähler-Kreis */
         .color-dot {
             width: 22px;
             height: 22px;
@@ -95,16 +95,12 @@
 
 <div id="app" class="h-screen w-screen flex flex-col justify-between">
     
-    <!-- ========================================================================= -->
-    <!-- HEADER                                                                    -->
-    <!-- ========================================================================= -->
     <header class="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center shrink-0 dark:bg-gray-800 dark:border-gray-700">
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Mein Schulplaner</h1>
             <p class="text-xs text-gray-500 dark:text-gray-400">Schuljahr {{ schuljahrLabel }} • iPad Core </p>
         </div>
         <div class="flex items-center gap-2">
-            <!-- Wochen-Navigation -->
             <div class="flex items-center gap-1 bg-gray-100 rounded-xl p-1 dark:bg-gray-700">
                 <button @click="wocheVorOderZurueck(-7)" class="p-1.5 hover:bg-white rounded-lg transition dark:hover:bg-gray-600" title="Vorherige Woche">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
@@ -117,7 +113,6 @@
                 </button>
             </div>
 
-            <!-- Datensicherung -->
             <button @click="showBackupModal = true" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition dark:bg-emerald-950">
                 <span>💾 Datensicherung</span>
             </button>
@@ -129,27 +124,21 @@
             </button>
         </div>
     </header>
-    <!-- ========================================================================= -->
-    <!-- MAIN WORKSPACE                                                            -->
-    <!-- ========================================================================= -->
     <main class="flex-1 flex overflow-hidden relative">
         
-        <!-- WOCHEN-STUNDENPLAN GRID -->
-        <div class="flex-1 p-6 overflow-y-auto custom-scroll transition-all duration-300" :class="{'mr-96': state.ui.showSidebar}">
-            <div class="grid gap-3 h-full min-w-[700px]" style="grid-template-columns: 70px repeat(5, 1fr);">
+        <div class="flex-1 p-6 overflow-y-auto custom-scroll transition-all duration-300" :class="{'mr-96': state.ui.showSidebar}"
+             @touchstart="onPlanTouchStart" @touchmove="onPlanTouchMove" @touchend="onPlanTouchEnd" @touchcancel="onPlanTouchEnd">
+            <div class="grid gap-3 h-full min-w-[700px]" :style="{ gridTemplateColumns: '70px repeat(5, 1fr)', '--plan-zoom': planZoom }">
                 
-                <!-- Zeilen-Header (Stunden & Zeiten) -->
-                <div class="flex flex-col gap-3 justify-end pb-2">
+                <div class="flex flex-col zoom-gap justify-end pb-2">
                     <div class="h-10"></div>
-                    <div v-for="stundeNo in 6" :key="stundeNo" class="flex-1 min-h-[95px] flex flex-col justify-center text-right pr-3 border-r border-gray-200 dark:border-gray-700">
+                    <div v-for="stundeNo in 6" :key="stundeNo" class="flex-1 zoom-row flex flex-col justify-center text-right pr-3 border-r border-gray-200 dark:border-gray-700">
                         <span class="text-sm font-bold text-gray-800 dark:text-gray-100">{{ stundeNo }}. Stunde</span>
                         <span class="text-[10px] text-gray-400 dark:text-gray-500">{{ getStundenZeit(stundeNo) }}</span>
                     </div>
                 </div>
 
-                <!-- Wochentage Spalten -->
-                <div v-for="tag in wochenTage" :key="tag.datum" class="flex flex-col gap-3 flex-1">
-                    <!-- Tages-Kopfzeile -->
+                <div v-for="tag in wochenTage" :key="tag.datum" class="flex flex-col zoom-gap flex-1">
                     <div class="h-10 flex flex-col justify-center items-center rounded-lg shadow-xs relative overflow-hidden"
                          :class="[tag.heute ? 'ring-2 ring-blue-400' : '', tag.ferien ? 'ferien-stripes' : '']"
                          :style="getTagFarbeStyle(tag)">
@@ -157,18 +146,16 @@
                         <span class="text-[10px] z-10" :class="getTagTextClass(tag, true)">{{ tag.datum_anzeige }}<template v-if="tag.ferien"> • {{ tag.ferien }}</template></span>
                     </div>
 
-                    <!-- Stunden-Zellen (Slots) -->
                     <div v-for="stundeNo in 6" :key="stundeNo" 
                          @click="oeffneStunde(tag.datum, stundeNo)"
                          :style="getStundeFarbeStyle(tag.datum, stundeNo)"
                          :class="[
-                            'flex-1 min-h-[95px] p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between relative overflow-hidden',
+                            'flex-1 zoom-row zoom-pad rounded-xl border transition-all cursor-pointer flex flex-col justify-between relative overflow-hidden',
                             isStundeSelected(tag.datum, stundeNo) ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-100' : 
                             (getSlotData(tag.datum, stundeNo)?.kurzeintrag ? 'bg-amber-50/70 border-amber-300 shadow-xs' : (hatStundeFarbe(tag.datum, stundeNo) ? 'border-gray-200 hover:shadow-xs' : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-xs')),
                             'dark:border-gray-700'
                          ]">
                         
-                        <!-- Fach & Klasse -->
                         <div class="flex justify-between items-start z-10">
                             <span class="text-xs font-bold text-gray-600 dark:text-gray-300">{{ getSlotFach(tag.datum, stundeNo) }}</span>
                             <span class="text-[9px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-semibold dark:bg-gray-700 dark:text-gray-300" v-if="getSlotKlasse(tag.datum, stundeNo)">
@@ -176,18 +163,15 @@
                             </span>
                         </div>
 
-                        <!-- Termine / Kurzeinträge (Direkt sichtbar!) -->
                         <div class="flex-1 flex flex-col justify-end py-1 z-10">
                             <div v-if="getSlotData(tag.datum, stundeNo)?.kurzeintrag" class="bg-amber-100 border-l-4 border-amber-500 p-1.5 rounded text-[10px] text-amber-900 font-medium leading-snug shadow-xs">
                                 📌 {{ getSlotData(tag.datum, stundeNo).kurzeintrag }}
                             </div>
-                            <!-- Planungsverknüpfungs-Titel -->
                             <div v-if="getSlotData(tag.datum, stundeNo)?.planungLink" class="text-[10px] text-blue-600 font-semibold truncate mt-1 flex items-center gap-1">
                                 🔗 {{ getSlotData(tag.datum, stundeNo).planungLink }}
                             </div>
                         </div>
 
-                        <!-- Icons / Feedback im Grid -->
                         <div class="flex justify-between items-center text-[9px] text-gray-400 z-10 mt-1 dark:text-gray-500">
                             <div>
                                 <span v-if="getSlotData(tag.datum, stundeNo)?.freitext" class="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md text-[10px] font-bold shadow-xs">
@@ -205,11 +189,9 @@
             </div>
         </div>
 
-        <!-- SEITENLEISTE (SIDEBAR) -->
         <transition enter-active-class="transform transition ease-in-out duration-300" enter-from-class="translate-x-full" enter-to-class="translate-x-0" leave-active-class="transform transition ease-in-out duration-300" leave-from-class="translate-x-0" leave-to-class="translate-x-full">
             <div v-if="state.ui.showSidebar" class="absolute right-0 top-0 bottom-0 w-96 bg-white border-l border-gray-200 shadow-2xl z-20 flex flex-col justify-between dark:bg-gray-800 dark:border-gray-700">
                 
-                <!-- Sidebar Kopfzeile -->
                 <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 dark:border-gray-700 dark:bg-gray-800">
                     <div>
                         <span class="text-[10px] font-bold uppercase tracking-wider text-blue-600">Details zur Stunde</span>
@@ -221,10 +203,8 @@
                     </button>
                 </div>
 
-                <!-- Sidebar Inhalt -->
                 <div class="flex-1 overflow-y-auto p-4 space-y-4 custom-scroll">
 
-                    <!-- FARB-MODUL: Tag & Stunde einfärben -->
                     <div class="bg-white rounded-xl p-3 border border-gray-200 space-y-3 dark:bg-gray-800 dark:border-gray-700">
                         <div>
                             <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5 dark:text-gray-500">🎨 Tag einfärben ({{ state.ui.activeSlot.datum }})</span>
@@ -258,7 +238,6 @@
                         <p class="text-xs text-gray-400 mt-1 dark:text-gray-500">Füge über die Buttons unten gewünschte Module hinzu.</p>
                     </div>
 
-                    <!-- MODULE 1: Termin / Kurzeintrag -->
                     <div v-if="state.ui.activeFields.includes('kurzeintrag')" class="bg-amber-50/50 rounded-xl p-3 border border-amber-100 relative">
                         <div class="flex justify-between items-center mb-2">
                             <span class="text-xs font-bold text-amber-800 uppercase">📌 Termin / Kurzeintrag</span>
@@ -267,7 +246,6 @@
                         <input type="text" v-model="activeSlotData.kurzeintrag" placeholder="z.B. Klassenarbeit ankündigen..." class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-200 dark:bg-gray-800 dark:border-gray-700">
                     </div>
 
-                    <!-- MODULE 2: Unterrichtsplanung verknüpfen -->
                     <div v-if="state.ui.activeFields.includes('planung')" class="bg-blue-50/50 rounded-xl p-3 border border-blue-100 relative">
                         <div class="flex justify-between items-center mb-2">
                             <span class="text-xs font-bold text-blue-600 uppercase">🔗 Verknüpfte Planung</span>
@@ -284,14 +262,12 @@
                                 </div>
                                 <button @click="showLibrarySelection = true" class="text-xs text-blue-500 hover:text-blue-700 font-medium">Wechseln</button>
                             </div>
-                            <!-- Smarter Direktlink in den Editor! -->
                             <button @click="oeffnePlanungDirektInBib(activeSlotData.planungId)" class="w-full py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 rounded-lg text-xs font-bold transition dark:bg-blue-950 dark:hover:bg-blue-900">
                                 📚 Planung direkt im Editor öffnen
                             </button>
                         </div>
                     </div>
 
-                    <!-- MODULE 3: Freie Unterrichts-Notiz -->
                     <div v-if="state.ui.activeFields.includes('notiz')" class="bg-gray-50 rounded-xl p-3 border border-gray-100 relative dark:bg-gray-800 dark:border-gray-700">
                         <div class="flex justify-between items-center mb-2">
                             <span class="text-xs font-bold text-gray-500 uppercase dark:text-gray-400">✍️ Unterrichts-Notizen (📝)</span>
@@ -300,7 +276,6 @@
                         <textarea v-model="activeSlotData.freitext" rows="4" placeholder="Schreib frei auf..." class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none custom-scroll dark:bg-gray-800 dark:border-gray-700"></textarea>
                     </div>
 
-                    <!-- MODULE 4: Skizzenfeld (Vektorbasiertes SVG für Pencil) -->
                     <div v-if="state.ui.activeFields.includes('sketch')" class="bg-yellow-50/50 rounded-xl p-3 border border-yellow-100 relative">
                         <div class="flex justify-between items-center mb-2">
                             <span class="text-xs font-bold text-amber-700 uppercase">🎨 Freihand-Skizze (Pencil)</span>
@@ -322,7 +297,77 @@
                         </div>
                     </div>
 
-                    <!-- Kompakte Schülerbemerkungen -->
+                    <!-- MODULE 5: Sammelbewertung für die Klasse dieser Stunde (Noten & Ziele) -->
+                    <div v-if="state.ui.activeFields.includes('bewertungen')" class="bg-emerald-50/40 rounded-xl p-3 border border-emerald-100 relative dark:bg-emerald-950/30 dark:border-emerald-900">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-bold text-emerald-700 uppercase dark:text-emerald-400">✅ Bewertungen für die Klasse</span>
+                            <button @click="removeField('bewertungen')" class="text-gray-400 hover:text-red-500 text-xs font-bold dark:text-gray-500">Löschen</button>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 dark:text-gray-500">Klasse</label>
+                            <select v-model="sammelKlasse" class="w-full border border-gray-200 rounded-lg p-2 text-xs bg-white focus:outline-none dark:bg-gray-800 dark:border-gray-700">
+                                <option v-for="k in klassenListe" :key="k" :value="k">{{ k }}</option>
+                            </select>
+                        </div>
+
+                        <div class="bg-white p-1 rounded-lg flex gap-1 text-[11px] mb-3 border border-gray-100 dark:bg-gray-800 dark:border-gray-700">
+                            <button @click="state.ui.bewertungenTab = 'noten'" :class="['flex-1 py-1.5 text-center rounded-md font-bold transition', state.ui.bewertungenTab === 'noten' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300' : 'text-gray-500 dark:text-gray-400']">📊 Noten</button>
+                            <button @click="state.ui.bewertungenTab = 'ziele'" :class="['flex-1 py-1.5 text-center rounded-md font-bold transition', state.ui.bewertungenTab === 'ziele' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300' : 'text-gray-500 dark:text-gray-400']">🎯 Ziele</button>
+                        </div>
+
+                        <!-- Sub-Tab: Noten für die ganze Klasse -->
+                        <div v-if="state.ui.bewertungenTab === 'noten'" class="space-y-3">
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="text" v-model="sammelAssignment.fach" placeholder="Fach" class="border border-gray-200 rounded-lg p-2 text-xs bg-white focus:outline-none dark:bg-gray-800 dark:border-gray-700">
+                                <select v-model="sammelAssignment.typ" class="border border-gray-200 rounded-lg p-2 text-xs bg-white focus:outline-none dark:bg-gray-800 dark:border-gray-700">
+                                    <option value="Klassenarbeit">Klassenarbeit</option>
+                                    <option value="Test / Überprüfung">Test</option>
+                                    <option value="Mitarbeit">Mitarbeit</option>
+                                    <option value="Epochalnote">Epochalnote</option>
+                                    <option value="Hausaufgaben">Hausaufgaben</option>
+                                </select>
+                            </div>
+                            <input type="text" v-model="sammelAssignment.titel" placeholder="Titel der Arbeit (optional)" class="w-full border border-gray-200 rounded-lg p-2 text-xs bg-white focus:outline-none dark:bg-gray-800 dark:border-gray-700">
+                            <p class="text-[10px] text-gray-400 dark:text-gray-500">Datum: {{ formatDatumLang(state.ui.activeSlot.datum) }} (aus dieser Stunde)</p>
+
+                            <div class="space-y-1.5 max-h-64 overflow-y-auto custom-scroll pr-1">
+                                <div v-for="s in sammelSchuelerInKlasse" :key="s.id" class="flex gap-2 items-center bg-white border border-gray-100 rounded-lg p-2 dark:bg-gray-800 dark:border-gray-700">
+                                    <span class="text-xs font-semibold text-gray-700 flex-1 truncate dark:text-gray-200">{{ s.name }}</span>
+                                    <input type="text" v-model="getSammelNotenEingabe(s.id).note" placeholder="Note" class="w-16 border border-gray-200 rounded p-1.5 text-xs bg-stone-50 focus:outline-none dark:bg-gray-900 dark:border-gray-600">
+                                    <input type="text" v-model="getSammelNotenEingabe(s.id).bemerkung" placeholder="Bemerkung" class="flex-1 min-w-0 border border-gray-200 rounded p-1.5 text-xs bg-stone-50 focus:outline-none dark:bg-gray-900 dark:border-gray-600">
+                                </div>
+                                <div v-if="sammelSchuelerInKlasse.length === 0" class="text-center text-xs text-gray-400 py-4 dark:text-gray-500">Keine Kinder in dieser Klasse.</div>
+                            </div>
+
+                            <button @click="speichereSammelNoten" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition">Noten für alle speichern</button>
+                            <p v-if="sammelNotenMessage" class="text-[11px] text-emerald-700 font-semibold text-center dark:text-emerald-400">{{ sammelNotenMessage }}</p>
+                        </div>
+
+                        <!-- Sub-Tab: Ziele für die ganze Klasse bewerten -->
+                        <div v-if="state.ui.bewertungenTab === 'ziele'" class="space-y-2 max-h-72 overflow-y-auto custom-scroll pr-1">
+                            <div v-for="zeile in sammelZielZeilen" :key="zeile.schueler.id + '_' + (zeile.ziel ? zeile.ziel.id : 'none')" class="bg-white border border-gray-100 rounded-lg p-2.5 dark:bg-gray-800 dark:border-gray-700">
+                                <div class="flex justify-between items-center mb-1.5">
+                                    <span class="text-xs font-bold text-gray-700 dark:text-gray-200">{{ zeile.schueler.name }}</span>
+                                    <span v-if="zeile.ziel" class="text-[10px] text-gray-400 dark:text-gray-500">🎯 {{ zeile.ziel.titel }}</span>
+                                </div>
+                                <div v-if="zeile.ziel" class="flex justify-between gap-1">
+                                    <button v-for="stufe in 5" :key="stufe"
+                                            @click="setzeZielBewertungFuerDatum(zeile.ziel, state.ui.activeSlot.datum, stufe)"
+                                            :class="['flex-1 py-1.5 rounded-lg text-lg transition border-2',
+                                                     getBewertungFuerDatum(zeile.ziel, state.ui.activeSlot.datum) === stufe
+                                                        ? 'border-blue-400 bg-blue-50 dark:bg-blue-950 dark:border-blue-600'
+                                                        : 'border-transparent hover:bg-gray-100 dark:hover:bg-gray-700']"
+                                            :title="zielSmileyLabel(stufe)">
+                                        {{ zielSmileyEmoji(stufe) }}
+                                    </button>
+                                </div>
+                                <p v-else class="text-[10px] text-gray-400 italic dark:text-gray-500">Kein aktives Ziel hinterlegt.</p>
+                            </div>
+                            <div v-if="sammelZielZeilen.length === 0" class="text-center text-xs text-gray-400 py-4 dark:text-gray-500">Keine Kinder in dieser Klasse.</div>
+                        </div>
+                    </div>
+
                     <div v-if="getSchuelerNotizenAnzahl(state.ui.activeSlot.datum, state.ui.activeSlot.stunde) > 0" class="pt-2 border-t border-gray-100 dark:border-gray-700">
                         <button @click="state.ui.showCompactNotesPanel = !state.ui.showCompactNotesPanel" class="w-full bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded-xl p-3 flex justify-between items-center transition dark:bg-amber-950 dark:hover:bg-amber-900">
                             <div class="flex items-center gap-2">
@@ -350,7 +395,6 @@
 
                 </div>
 
-                <!-- Sidebar Footer -->
                 <div class="p-4 border-t border-gray-100 bg-gray-50 flex flex-col gap-2 dark:border-gray-700 dark:bg-gray-800">
                     <div class="grid grid-cols-2 gap-2">
                         <button v-if="!state.ui.activeFields.includes('kurzeintrag')" @click="addField('kurzeintrag')" class="py-2.5 px-3 bg-white hover:bg-gray-100 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 flex items-center justify-center gap-1.5 transition dark:bg-gray-800 dark:hover:bg-gray-700 dark:border-gray-700 dark:text-gray-200">
@@ -365,9 +409,11 @@
                         <button v-if="!state.ui.activeFields.includes('sketch')" @click="addField('sketch')" class="py-2.5 px-3 bg-white hover:bg-gray-100 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 flex items-center justify-center gap-1.5 transition dark:bg-gray-800 dark:hover:bg-gray-700 dark:border-gray-700 dark:text-gray-200">
                             <span>🎨 + Skizze</span>
                         </button>
+                        <button v-if="!state.ui.activeFields.includes('bewertungen')" @click="oeffneBewertungenModul" class="py-2.5 px-3 bg-white hover:bg-gray-100 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 flex items-center justify-center gap-1.5 transition dark:bg-gray-800 dark:hover:bg-gray-700 dark:border-gray-700 dark:text-gray-200">
+                            <span>✅ + Bewertungen</span>
+                        </button>
                     </div>
 
-                    <!-- Schülerbemerkung schnell hinzufügen -->
                     <button @click="oeffneSchuelerNotizModal" class="mt-2 w-full py-3.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
                         Schülernotiz erheben
@@ -378,7 +424,6 @@
         </transition>
 
     </main>
-    <!-- FLOATING FOOTER (NAVIGATION) -->
     <footer class="bg-white border-t border-gray-200 px-6 py-3 flex justify-between items-center shrink-0 dark:bg-gray-800 dark:border-gray-700">
         <span class="text-xs text-gray-400 dark:text-gray-500">Lehrer-Assistent Core • Hybrid Active</span>
         <div class="flex gap-2">
@@ -397,11 +442,6 @@
         </div>
     </footer>
 
-    <!-- ========================================================================= -->
-    <!-- POPUPS & MODALS                                                           -->
-    <!-- ========================================================================= -->
-
-    <!-- POPUP 1: SCHÜLERNOTIZ MODAL (SCHNELLZUGRIFF) -->
     <div v-if="showSchuelerNotizModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200 dark:bg-gray-800">
             <div class="bg-amber-500 px-4 py-3 flex justify-between items-center text-white">
@@ -430,7 +470,6 @@
         </div>
     </div>
 
-    <!-- POPUP 2: DATENSICHERUNG (EXPORT & IMPORT) -->
     <div v-if="showBackupModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200 dark:bg-gray-800">
             <div class="bg-emerald-600 text-white px-5 py-4 flex justify-between items-center shrink-0">
@@ -448,7 +487,6 @@
                     <strong>⚠️ Wichtiger iPad-Hinweis:</strong> Safari bereinigt ungenutzte Webseitendaten nach einigen Tagen Inaktivität selbsttätig. Sorge mit Backups vor oder installiere diese App via Capacitor, um dieses Problem für immer loszuwerden!
                 </div>
 
-                <!-- Exportieren Sektion -->
                 <div class="space-y-2">
                     <h4 class="text-sm font-bold text-gray-800 dark:text-gray-100">1. Daten sichern (Export)</h4>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Erstellt eine Sicherungsdatei, die du auf deinem iPad oder PC speichern kannst.</p>
@@ -459,7 +497,6 @@
 
                 <hr class="border-gray-200 dark:border-gray-700">
 
-                <!-- Importieren Sektion -->
                 <div class="space-y-2">
                     <h4 class="text-sm font-bold text-gray-800 dark:text-gray-100">2. Daten wiederherstellen (Import)</h4>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Wähle eine Sicherungsdatei aus, um alle Notizen wieder einzuspielen.</p>
@@ -482,7 +519,6 @@
         </div>
     </div>
 
-    <!-- POPUP 3: GANZER SCHÜLERBEREICH (Echte Digitale iPad Schüler-Akte) -->
     <div v-if="showSchuelerModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200 dark:bg-gray-800">
             <div class="bg-gray-800 text-white px-5 py-4 flex justify-between items-center border-b">
@@ -496,7 +532,6 @@
             </div>
             
             <div class="flex-1 flex overflow-hidden">
-                <!-- Linke Spalte: Schülerliste & Hinzufügen -->
                 <div class="w-1/3 border-r border-gray-100 overflow-y-auto p-3 space-y-3 bg-gray-50 custom-scroll flex flex-col justify-between dark:border-gray-700 dark:bg-gray-800">
                     <div class="space-y-1 flex-1">
                         <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1 dark:text-gray-500">Schülerliste</span>
@@ -505,7 +540,6 @@
                              @click="selectedSchuelerId = schueler.id">
                             <span class="truncate pr-2">{{ schueler.name }} ({{ schueler.klasse }})</span>
                             
-                            <!-- Sicherheits-Löschen für Schüler -->
                             <button @click.stop="triggerDelete('schueler', schueler.id)" 
                                     :class="['px-1.5 py-0.5 rounded text-[10px] transition-all font-bold', isConfirming('schueler', schueler.id) ? 'bg-yellow-400 text-gray-900' : 'bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white']">
                                 <span v-if="isConfirming('schueler', schueler.id)">Sicher?</span>
@@ -514,7 +548,6 @@
                         </div>
                     </div>
                     
-                    <!-- Inline Schüler hinzufügen (Keine nervigen Pop-ups!) -->
                     <div class="pt-3 border-t border-gray-200 space-y-2 dark:border-gray-700">
                         <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block dark:text-gray-500">Neu aufnehmen</span>
                         <div class="space-y-1.5">
@@ -525,10 +558,8 @@
                     </div>
                 </div>
 
-                <!-- Rechte Spalte: Karteikartenverlauf mit tabs -->
                 <div class="w-2/3 flex flex-col justify-between bg-stone-50 dark:bg-gray-900" v-if="getSelectedSchueler">
                     
-                    <!-- Student Header / Tab-Navigation -->
                     <div class="p-4 bg-white border-b border-gray-200 flex flex-col gap-3 dark:bg-gray-800 dark:border-gray-700">
                         <div class="flex justify-between items-start">
                             <div>
@@ -537,7 +568,6 @@
                             </div>
                         </div>
 
-                        <!-- iOS Segmented Control Tab-Navigation -->
                         <div class="bg-gray-100 p-1 rounded-xl flex gap-1 text-xs dark:bg-gray-700">
                             <button @click="state.ui.schuelerTab = 'personal'" 
                                     :class="['flex-1 py-2 text-center rounded-lg font-bold transition', state.ui.schuelerTab === 'personal' ? 'bg-white text-blue-600 shadow-xs dark:bg-gray-800 dark:text-blue-400' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100']">
@@ -563,10 +593,8 @@
                     </div>
 
 
-                    <!-- Inner Scrollable Dossier Content -->
                     <div class="flex-1 p-5 overflow-y-auto custom-scroll space-y-4">
                         
-                        <!-- TAB A: PERSONALBOGEN -->
                         <div v-if="state.ui.schuelerTab === 'personal'" class="space-y-4 animate-in fade-in duration-100">
     <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 dark:bg-gray-800 dark:border-gray-700">
         <h5 class="text-xs font-bold text-blue-600 uppercase tracking-wider">Daten des Schülers</h5>
@@ -589,7 +617,6 @@
     </div>
 </div>
 
-                        <!-- TAB B: UNTERRICHTSNOTIZEN (Chronologisch) -->
                         <div v-if="state.ui.schuelerTab === 'notizen'" class="space-y-3 animate-in fade-in duration-100">
                             <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-200 shadow-xs mb-1 dark:bg-gray-800 dark:border-gray-700">
                                 <span class="text-xs font-semibold text-gray-700 dark:text-gray-200">Beobachtungsprotokoll</span>
@@ -604,7 +631,6 @@
                                     </div>
                                     <p class="text-gray-800 text-sm leading-relaxed pr-16 dark:text-gray-100">{{ notiz.text }}</p>
                                     
-                                    <!-- Schüler-Beobachtung löschen (Zwei-Klick) -->
                                     <button @click="triggerDelete('notizSchueler', notiz.id)" 
                                             :class="['absolute right-3 bottom-3 px-2 py-1 rounded text-[10px] font-bold transition-all', isConfirming('notizSchueler', notiz.id) ? 'bg-yellow-400 text-gray-900' : 'bg-red-50 text-red-500 hover:bg-red-500 hover:text-white']">
                                         <span v-if="isConfirming('notizSchueler', notiz.id)">Sicher?</span>
@@ -615,10 +641,8 @@
                             </div>
                         </div>
 
-                        <!-- TAB C: NOTEN & BEWERTUNGEN -->
                         <div v-if="state.ui.schuelerTab === 'noten'" class="space-y-4 animate-in fade-in duration-100">
                             
-                            <!-- Eingabe-Formular für Noten -->
                           <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 dark:bg-gray-800 dark:border-gray-700">
     <h5 class="text-xs font-bold text-blue-600 uppercase tracking-wider">Neue Bewertung hinzufügen</h5>
     <div class="grid grid-cols-4 gap-2">
@@ -646,19 +670,23 @@
         </div>
     </div>
     <div>
+        <label class="block text-[9px] text-gray-400 font-bold uppercase mb-0.5 dark:text-gray-400">Titel der Arbeit (optional)</label>
+        <input type="text" v-model="neueNote.titel" placeholder="z.B. Bruchrechnen Kapitel 3" class="w-full bg-stone-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none dark:bg-gray-900 dark:border-gray-700 dark:text-gray-200">
+    </div>
+    <div>
         <label class="block text-[9px] text-gray-400 font-bold uppercase mb-0.5 dark:text-gray-400">Bemerkung / Kriterium</label>
         <input type="text" v-model="neueNote.bemerkung" placeholder="z.B. Fehler beim Addieren, Struktur war gut" class="w-full bg-stone-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none dark:bg-gray-900 dark:border-gray-700 dark:text-gray-200">
     </div>
     <button @click="fuegeNoteHinzu" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition">Bewertung eintragen</button>
 </div>
 
-                            <!-- Noten-Verlaufstabelle -->
                             <div class="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-hidden dark:bg-gray-800 dark:border-gray-700">
                                 <table class="min-w-full divide-y divide-gray-200 text-xs text-left">
                                     <thead class="bg-gray-100 text-gray-600 font-bold uppercase tracking-wider dark:bg-gray-700 dark:text-gray-300">
                                         <tr>
                                             <th class="px-4 py-2.5">Datum</th>
                                             <th class="px-4 py-2.5">Fach</th>
+                                            <th class="px-4 py-2.5">Titel</th>
                                             <th class="px-4 py-2.5">Typ</th>
                                             <th class="px-4 py-2.5">Note</th>
                                             <th class="px-4 py-2.5">Bemerkung</th>
@@ -669,6 +697,7 @@
                                         <tr v-for="item in getSelectedSchueler.noten" :key="item.id" class="hover:bg-stone-50 dark:hover:bg-gray-700">
                                             <td class="px-4 py-2.5 font-medium whitespace-nowrap">{{ formatDatum(item.datum) }}</td>
                                             <td class="px-4 py-2.5 font-bold">{{ item.fach }}</td>
+                                            <td class="px-4 py-2.5 text-gray-500 truncate max-w-[150px] dark:text-gray-400" :title="item.titel">{{ item.titel || '-' }}</td>
                                             <td class="px-4 py-2.5 text-gray-500 dark:text-gray-400">{{ item.typ }}</td>
                                             <td class="px-4 py-2.5"><span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold">{{ item.note }}</span></td>
                                             <td class="px-4 py-2.5 text-gray-500 truncate max-w-[150px] dark:text-gray-400" :title="item.bemerkung">{{ item.bemerkung || '-' }}</td>
@@ -688,16 +717,13 @@
                             </div>
                         </div>
 
-                        <!-- TAB D: FÖRDERPLÄNE -->
                         <div v-if="state.ui.schuelerTab === 'foerder'" class="space-y-4 animate-in fade-in duration-100">
                             
-                            <!-- Upload- & Schreibe-Werkzeuge -->
                             <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 dark:bg-gray-800 dark:border-gray-700">
                                 <h5 class="text-xs font-bold text-blue-600 uppercase tracking-wider">Förderplan hinterlegen</h5>
                                 <p class="text-[11px] text-gray-400 leading-snug dark:text-gray-500">Du kannst einen Text-Förderplan (.txt / .md) direkt importieren oder hier manuell einen Plan eintippen.</p>
                                 
                                 <div class="grid grid-cols-2 gap-2">
-                                    <!-- ECHTER DATEI-IMPORT FÜR FÖRDERPLÄNE -->
                                     <div class="relative">
                                         <input type="file" 
                                                accept=".txt,.md,.markdown" 
@@ -713,7 +739,6 @@
                                     </button>
                                 </div>
 
-                                <!-- Manueller Eingabeblock (Inline) -->
                                 <div v-if="state.ui.showManualFoerderEditor" class="p-3 bg-stone-50 rounded-xl border border-stone-200 space-y-2.5 dark:bg-gray-900">
                                     <input type="text" v-model="neuerFoerderplan.titel" placeholder="Titel (z.B. LRS-Förderung 2026)" class="w-full border border-gray-200 rounded-lg p-2 text-xs focus:outline-none bg-white dark:border-gray-700 dark:bg-gray-800">
                                     <textarea v-model="neuerFoerderplan.inhalt" rows="4" placeholder="Förderziele, Maßnahmen und Absprachen..." class="w-full border border-gray-200 rounded-lg p-2 text-xs focus:outline-none bg-white resize-none dark:border-gray-700 dark:bg-gray-800"></textarea>
@@ -721,7 +746,6 @@
                                 </div>
                             </div>
 
-                            <!-- Liste hinterlegter Förderpläne -->
                             <div class="space-y-2">
                                 <div v-for="plan in getSelectedSchueler.foerderplaene" :key="plan.id" class="bg-white border border-gray-200 rounded-xl p-3.5 shadow-xs flex justify-between items-center transition hover:border-gray-300 dark:bg-gray-800 dark:border-gray-700">
                                     <div class="space-y-0.5 truncate pr-4">
@@ -729,12 +753,10 @@
                                         <h6 class="text-sm font-bold text-gray-800 truncate dark:text-gray-100">🎯 {{ plan.titel }}</h6>
                                     </div>
                                     <div class="flex gap-1.5 shrink-0">
-                                        <!-- Readonly Betrachter-Button -->
                                         <button @click="oeffneFoerderplanReadOnly(plan)" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold transition dark:bg-indigo-950 dark:hover:bg-indigo-900">
                                             🔎 Lesen
                                         </button>
                                         
-                                        <!-- Löschbutton mit Sicherheitszweitschritt -->
                                         <button @click="triggerDelete('foerderplan', plan.id)" 
                                                 :class="['px-2.5 py-1.5 rounded text-xs font-bold transition-all', isConfirming('foerderplan', plan.id) ? 'bg-yellow-400 text-gray-900' : 'bg-red-50 text-red-500 hover:bg-red-500 hover:text-white']">
                                             <span v-if="isConfirming('foerderplan', plan.id)">Ja</span>
@@ -746,10 +768,8 @@
                             </div>
                         </div>
 
-                        <!-- TAB E: AKTUELLE & BISHERIGE ZIELE (NEU) -->
                         <div v-if="state.ui.schuelerTab === 'ziele'" class="space-y-4 animate-in fade-in duration-100">
 
-                            <!-- Neues Ziel anlegen -->
                             <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 dark:bg-gray-800 dark:border-gray-700">
                                 <h5 class="text-xs font-bold text-blue-600 uppercase tracking-wider dark:text-blue-400">Neues Ziel anlegen</h5>
                                 <div class="flex gap-2">
@@ -758,7 +778,6 @@
                                 </div>
                             </div>
 
-                            <!-- Aktuelle Ziele -->
                             <div class="space-y-3">
                                 <h5 class="text-xs font-bold text-gray-400 uppercase tracking-wider px-1 dark:text-gray-500">Aktuelle Ziele</h5>
 
@@ -773,7 +792,6 @@
                                         </button>
                                     </div>
 
-                                    <!-- Heutige Bewertung: 5 Smiley-Abstufungen -->
                                     <div class="bg-stone-50 rounded-xl p-3 border border-gray-100 dark:bg-gray-900 dark:border-gray-700">
                                         <div class="flex justify-between items-center mb-2">
                                             <span class="text-[10px] font-bold text-gray-500 uppercase dark:text-gray-400">Heute bewerten ({{ heuteFormatiert }})</span>
@@ -792,7 +810,6 @@
                                         </div>
                                     </div>
 
-                                    <!-- Mini-Auswertung: Tabelle + Graph -->
                                     <div v-if="ziel.bewertungen && ziel.bewertungen.length > 0">
                                         <button @click="toggleZielAuswertung(ziel.id)" class="text-[10px] font-bold text-blue-600 hover:underline dark:text-blue-400">
                                             {{ offeneZielAuswertungen.includes(ziel.id) ? '▲ Auswertung ausblenden' : '▼ Auswertung anzeigen (' + ziel.bewertungen.length + ' Einträge)' }}
@@ -830,7 +847,6 @@
                                 </div>
                             </div>
 
-                            <!-- Bisherige Ziele -->
                             <div class="space-y-3" v-if="bisherigeZiele.length > 0">
                                 <h5 class="text-xs font-bold text-gray-400 uppercase tracking-wider px-1 dark:text-gray-500">Bisherige Ziele</h5>
 
@@ -883,7 +899,6 @@
                     </div>
                 </div>
                 
-                <!-- Fallback wenn kein Schüler ausgewählt -->
                 <div class="w-2/3 flex flex-col items-center justify-center text-gray-400 text-xs bg-stone-50 dark:text-gray-500 dark:bg-gray-900" v-else>
                     <span class="text-4xl mb-2">👥</span>
                     Wähle links ein Kind aus der Schülerliste aus,<br>
@@ -893,7 +908,6 @@
         </div>
     </div>
 
-    <!-- POPUP 4: PLANUNGSBIBLIOTHEK (AUSWAHL-OVERLAY AUS SIDEBAR) -->
     <div v-if="showLibrarySelection" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden dark:bg-gray-800">
             <div class="bg-blue-600 px-4 py-3 flex justify-between items-center text-white">
@@ -914,11 +928,9 @@
         </div>
     </div>
 
-    <!-- POPUP 5: INTERAKTIVE PLANUNGSBIBLIOTHEK (ORDNERSTRUKTUR & DYNAMISCHER EDITOR) -->
     <div v-if="showBibliothekModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200 dark:bg-gray-800">
             
-            <!-- Header -->
             <div class="bg-blue-600 text-white px-5 py-4 flex justify-between items-center border-b">
                 <div>
                     <h3 class="text-lg font-bold flex items-center gap-2">
@@ -931,10 +943,8 @@
                 </button>
             </div>
 
-            <!-- Hauptbereich -->
             <div class="flex-1 flex overflow-hidden">
                 
-                <!-- Linker Bereich: Ordner & Dokumentenliste -->
                 <div class="w-1/3 border-r border-gray-200 bg-gray-50 flex flex-col justify-between overflow-y-auto custom-scroll p-4 dark:border-gray-700 dark:bg-gray-800">
                     
                     <div class="space-y-4">
@@ -942,12 +952,10 @@
                             <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider dark:text-gray-500">Ablageordner</span>
                         </div>
 
-                        <!-- Ordnerstruktur-Liste -->
                         <div v-for="ordner in state.bibliothek.ordner" :key="ordner.name" class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-xs dark:bg-gray-800 dark:border-gray-700">
                             <div class="bg-gray-100/80 px-3 py-2 text-xs font-bold text-gray-700 border-b border-gray-200 flex justify-between items-center dark:text-gray-700 dark:border-gray-700">
                                 <span class="truncate">📁 {{ ordner.name }}</span>
                                 
-                                <!-- Ordner löschen -->
                                 <button @click.stop="triggerDelete('ordnerBib', ordner.name)" 
                                         :class="['px-2 py-0.5 rounded text-[9px] font-bold transition-all', isConfirming('ordnerBib', ordner.name) ? 'bg-yellow-400 text-gray-900' : 'bg-red-50 text-red-600 hover:bg-red-600 hover:text-white']">
                                     <span v-if="isConfirming('ordnerBib', ordner.name)">Sicher?</span>
@@ -955,7 +963,6 @@
                                 </button>
                             </div>
                             
-                            <!-- Dokumente im Ordner -->
                             <div class="divide-y divide-gray-100">
                                 <div v-for="plan in ordner.plaene" :key="plan.id"
                                         @click="waehlePlanAusBib(ordner.name, plan.id)"
@@ -967,7 +974,6 @@
                                             {{ plan.tabelle ? plan.tabelle.length : 0 }} Ph.
                                         </span>
                                         
-                                        <!-- Planseite aus Ordner löschen -->
                                         <button @click.stop="triggerDelete('planBib', plan.id)" 
                                                 :class="['px-1.5 py-0.5 rounded font-bold text-[10px] transition-all', isConfirming('planBib', plan.id) ? 'bg-yellow-400 text-gray-900' : 'text-red-500 bg-red-50 hover:bg-red-500 hover:text-white', 'dark:bg-red-950']">
                                             <span v-if="isConfirming('planBib', plan.id)">Ja</span>
@@ -976,7 +982,6 @@
                                     </div>
                                 </div>
                                 
-                                <!-- Dokument direkt im Ordner erstellen (Ohne Browser-Prompt!) -->
                                 <div class="p-2 bg-gray-50/50 flex gap-1.5 dark:bg-gray-900/50">
                                     <input type="text" 
                                            v-model="neuerPlanTitelMap[ordner.name]" 
@@ -988,7 +993,6 @@
                         </div>
                     </div>
 
-                    <!-- Neuen Ordner anlegen (Inline) -->
                     <div class="pt-4 border-t border-gray-200 mt-4 bg-gray-50 dark:border-gray-700 dark:bg-gray-800">
                         <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 dark:text-gray-500">Neuer Themenordner</label>
                         <div class="flex gap-2">
@@ -999,12 +1003,10 @@
 
                 </div>
 
-                <!-- Rechter Bereich: Dynamischer Editor / Ansicht -->
                 <div class="w-2/3 p-6 overflow-y-auto custom-scroll bg-stone-50 flex flex-col justify-between dark:bg-gray-900">
                     
                     <div v-if="activeBibPlan" class="space-y-6">
                         
-                        <!-- Header & Switcher (Ansicht vs. Edit) -->
                         <div class="flex justify-between items-center border-b border-gray-200 pb-3 dark:border-gray-700">
                             <div>
                                 <span class="text-xs text-blue-600 font-bold uppercase tracking-wider">{{ activeBibPlanOrdner }}</span>
@@ -1019,7 +1021,6 @@
                             </button>
                         </div>
 
-                        <!-- 1. TEXTINHALT -->
                         <div class="space-y-2">
                             <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block dark:text-gray-500">Beschreibung & Ablauf</span>
                             <div v-if="!bibEditMode" class="bg-white border border-gray-200 rounded-2xl p-4 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200">
@@ -1032,11 +1033,9 @@
                                       class="w-full bg-white border border-gray-200 rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 dark:bg-gray-800 dark:border-gray-700"></textarea>
                         </div>
 
-                        <!-- 2. DYNAMISCHES LINK-MODUL -->
                         <div class="space-y-2">
                             <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block dark:text-gray-500">Verknüpfte Web-Links</span>
                             
-                            <!-- Ansichtsmodus: Liste klickbarer Links -->
                             <div v-if="!bibEditMode" class="flex flex-wrap gap-2">
                                 <a v-for="link in activeBibPlan.links" 
                                    :key="link.url" 
@@ -1048,7 +1047,6 @@
                                 <span v-if="!activeBibPlan.links || activeBibPlan.links.length === 0" class="text-xs text-gray-400 dark:text-gray-500">Keine Links hinterlegt.</span>
                             </div>
 
-                            <!-- Bearbeitungsmodus: Links hinzufügen & löschen -->
                             <div v-else class="space-y-3 bg-white border border-gray-200 rounded-2xl p-4 dark:bg-gray-800 dark:border-gray-700">
                                 <div v-for="(link, index) in activeBibPlan.links" :key="index" class="flex justify-between items-center bg-gray-50 p-2 rounded-lg text-xs dark:bg-gray-800">
                                     <span class="font-semibold text-gray-700 dark:text-gray-200">{{ link.titel }} (<span class="text-gray-400 font-normal dark:text-gray-500">{{ link.url }}</span>)</span>
@@ -1062,11 +1060,9 @@
                             </div>
                         </div>
 
-                        <!-- 3. INTERAKTIVES TABELLEN-MODUL -->
                         <div class="space-y-2">
                             <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block dark:text-gray-500">Unterrichtsraster / Ablaufplan</span>
                             
-                            <!-- Ansichtsmodus: Schicke, gerenderte Tabelle -->
                             <div v-if="!bibEditMode" class="overflow-x-auto rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
                                 <table class="min-w-full divide-y divide-gray-200 text-xs text-left">
                                     <thead class="bg-gray-100 text-gray-600 font-bold uppercase tracking-wider dark:bg-gray-700 dark:text-gray-300">
@@ -1091,7 +1087,6 @@
                                 </table>
                             </div>
 
-                            <!-- Bearbeitungsmodus: Interaktiver Zeilen-Builder -->
                             <div v-else class="space-y-3 bg-white border border-gray-200 rounded-2xl p-4 overflow-x-auto dark:bg-gray-800 dark:border-gray-700">
                                 <table class="min-w-full divide-y divide-gray-200 text-xs text-left">
                                     <thead class="bg-gray-50 text-gray-500 font-bold uppercase dark:bg-gray-800 dark:text-gray-400">
@@ -1121,7 +1116,6 @@
 
                     </div>
                     
-                    <!-- Fallback -->
                     <div v-else class="flex-1 flex flex-col items-center justify-center text-gray-400 text-xs text-center py-24 dark:text-gray-500">
                         <span class="text-4xl mb-2">📄</span>
                         Wähle links eine Planungsseite aus einem Ordner aus,<br>
@@ -1133,7 +1127,6 @@
         </div>
     </div>
 
-    <!-- POPUP 6: NOTIZ-ARCHIV (DYNAMISCHE THEMEN-ORDNER) -->
     <div v-if="showArchivModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[85vh] flex flex-col overflow-hidden dark:bg-gray-800">
             <div class="bg-indigo-700 text-white px-5 py-4 flex justify-between items-center shrink-0">
@@ -1157,7 +1150,6 @@
                                 <div class="flex items-center gap-2">
                                     <span class="bg-black/10 px-1.5 py-0.5 rounded text-[10px]">{{ getNotesCountInFolder(ordner) }}</span>
                                     
-                                    <!-- Löschen Archiv-Ordner -->
                                     <button v-if="ordner !== 'Allgemein'" @click.stop="triggerDelete('ordnerArchiv', ordner)" 
                                             :class="['px-1.5 py-0.5 rounded text-[9px] font-bold transition-all', isConfirming('ordnerArchiv', ordner) ? 'bg-yellow-400 text-gray-900' : 'bg-red-500/10 text-red-600 hover:bg-red-600 hover:text-white']">
                                         <span v-if="isConfirming('ordnerArchiv', ordner)">Sicher?</span>
@@ -1187,7 +1179,6 @@
                             </div>
                             <p class="text-sm text-gray-700 whitespace-pre-wrap pr-16 dark:text-gray-200">{{ notiz.text }}</p>
                             
-                            <!-- Archiv-Eintrag löschen -->
                             <button @click="triggerDelete('notizArchiv', notiz.key)" 
                                     :class="['absolute right-3 top-10 px-2 py-1 rounded text-[10px] font-bold transition-all', isConfirming('notizArchiv', notiz.key) ? 'bg-yellow-400 text-gray-900' : 'bg-red-50 text-red-500 hover:bg-red-500 hover:text-white']">
                                 <span v-if="isConfirming('notizArchiv', notiz.key)">Sicher?</span>
@@ -1207,11 +1198,9 @@
         </div>
     </div>
 
-    <!-- POPUP 7: EINSTELLUNGEN (SCHULJAHR, FERIEN, TAGFARBEN, STUNDENPLAN-VORLAGE) -->
     <div v-if="showInfoModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200 dark:bg-gray-800">
 
-            <!-- Header -->
             <div class="bg-gray-800 text-white px-5 py-4 flex justify-between items-center border-b shrink-0">
                 <div>
                     <h3 class="text-base font-bold">⚙️ Schuljahr & Stundenplan einrichten</h3>
@@ -1222,7 +1211,6 @@
                 </button>
             </div>
 
-            <!-- Tab-Navigation -->
             <div class="bg-gray-100 px-4 pt-3 flex gap-1 text-xs shrink-0 dark:bg-gray-700">
                 <button @click="settingsTab = 'schuljahr'" :class="['px-4 py-2.5 rounded-t-xl font-bold transition', settingsTab === 'schuljahr' ? 'bg-white text-blue-600 shadow-xs dark:bg-gray-800 dark:text-blue-400' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100']">
                     📅 Schuljahr & Ferien
@@ -1239,10 +1227,8 @@
             </div>
 
 
-            <!-- Inhalt -->
             <div class="flex-1 overflow-y-auto custom-scroll p-5 bg-stone-50 space-y-5 dark:bg-gray-900">
 
-                <!-- TAB A: SCHULJAHR & FERIEN -->
                 <div v-if="settingsTab === 'schuljahr'" class="space-y-5 animate-in fade-in duration-100">
 
                     <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 dark:bg-gray-800 dark:border-gray-700">
@@ -1265,7 +1251,6 @@
                         <h5 class="text-xs font-bold text-pink-600 uppercase tracking-wider">🏖️ Ferien & schulfreie Zeiträume</h5>
                         <p class="text-[11px] text-gray-400 leading-snug dark:text-gray-500">Eingetragene Zeiträume werden im Stundenplan automatisch rosa markiert und gestreift dargestellt.</p>
 
-                        <!-- Liste bestehender Ferien -->
                      <div class="space-y-2">
     <div v-for="(f, idx) in state.ferien" :key="idx" class="flex items-center gap-2 bg-pink-50 border border-pink-100 rounded-xl p-2.5 dark:bg-pink-950 dark:border-pink-900">
         <input type="text" v-model="f.name" placeholder="Name" class="flex-1 min-w-0 border border-gray-200 rounded-lg p-1.5 text-xs bg-white text-gray-900 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
@@ -1276,7 +1261,6 @@
     </div>
 </div>
 
-                        <!-- Neue Ferien hinzufügen -->
                         <div class="pt-3 border-t border-gray-100 flex items-end gap-2 dark:border-gray-700">
     <div class="flex-1 min-w-0">
         <label class="block text-[9px] text-gray-400 font-bold uppercase mb-0.5 dark:text-gray-500">Name</label>
@@ -1294,8 +1278,8 @@
 </div>
                         </div>
                         </div>
+                </div>
 
-                <!-- TAB B: TAGESFARBEN-ÜBERSICHT -->
                 <div v-if="settingsTab === 'farben'" class="space-y-4 animate-in fade-in duration-100">
                     <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-2 dark:bg-gray-800 dark:border-gray-700">
                         <h5 class="text-xs font-bold text-blue-600 uppercase tracking-wider">Wie Tage einfärben?</h5>
@@ -1335,7 +1319,6 @@
                     </div>
                 </div>
 
-                <!-- TAB C: STUNDENPLAN-VORLAGE -->
                 <div v-if="settingsTab === 'vorlage'" class="space-y-4 animate-in fade-in duration-100">
                     <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-2 dark:bg-gray-800 dark:border-gray-700">
                         <h5 class="text-xs font-bold text-blue-600 uppercase tracking-wider">Deine Wochenvorlage</h5>
@@ -1394,7 +1377,6 @@
                     </div>
                 </div>
 
-                <!-- TAB D: DARSTELLUNG (DARK MODE) -->
                 <div v-if="settingsTab === 'darstellung'" class="space-y-4 animate-in fade-in duration-100">
                     <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 dark:bg-gray-800 dark:border-gray-700">
                         <h5 class="text-xs font-bold text-blue-600 uppercase tracking-wider dark:text-blue-400">Farbschema</h5>
@@ -1424,7 +1406,6 @@
 
     <div v-if="state.ui.activeFoerderplanReadOnly" class="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[80vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200 dark:bg-gray-800">
-            <!-- Header -->
             <div class="bg-indigo-700 text-white px-5 py-4 flex justify-between items-center shrink-0">
                 <div>
                     <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-200">Akten-Einsicht (Nur Lesen)</span>
@@ -1436,7 +1417,6 @@
                 </button>
             </div>
             
-            <!-- Dokumenteninhalt -->
             <div class="flex-1 p-6 overflow-y-auto custom-scroll bg-stone-50 dark:bg-gray-900">
                 <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs leading-relaxed text-sm text-gray-800 whitespace-pre-wrap dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100">
                     {{ state.ui.activeFoerderplanReadOnly.inhalt || 'Dieses Dokument enthält keinen Text.' }}
@@ -1450,9 +1430,6 @@
 <script>
     const { createApp, ref, computed, nextTick, watch } = Vue;
 
-    // =========================================================================
-    // DATUMS- & KALENDER-HILFSFUNKTIONEN (modulweit verfügbar)
-    // =========================================================================
     const WOCHENTAGE_NAMEN = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
     const VORLAGE_KEYS = ["Mo", "Di", "Mi", "Do", "Fr"];
 
@@ -1471,7 +1448,7 @@
 
     function getMontagDerWoche(isoDate) {
         const d = new Date(isoDate + "T00:00:00");
-        const tag = d.getDay(); // 0=So, 1=Mo, ... 6=Sa
+        const tag = d.getDay();
         const diff = tag === 0 ? -6 : 1 - tag;
         d.setDate(d.getDate() + diff);
         return toISODate(d);
@@ -1497,20 +1474,16 @@
 
     createApp({
         setup() {
-            // =========================================================================
-            // ZENTRALER STATE (DATENSPEICHER)                                           
-            // =========================================================================
             const state = ref({
 
-                // SCHUBLADE -1: App-Einstellungen (NEU)
                 einstellungen: {
-                    darkMode: false
+                    darkMode: false,
+                    planZoom: 1
                 },
 
-                // SCHUBLADE 0: Schuljahr & Ferien (NEU - steuert den ganzen Kalender)
                 schuljahr: {
-                    start: "2026-09-14",  // Montag der ersten Schulwoche
-                    ende: "2027-07-23"    // letzter Schultag (Freitag)
+                    start: "2026-09-14",
+                    ende: "2027-07-23"
                 },
                 ferien: [
                     { name: "Herbstferien", von: "2026-10-26", bis: "2026-10-30" },
@@ -1520,29 +1493,22 @@
                     { name: "Sommerferien", von: "2027-07-26", bis: "2027-09-03" }
                 ],
 
-                // SCHUBLADE 1: (entfernt) - Kalendertage werden jetzt live berechnet
-
-                // SCHUBLADE 2: Stundenplan-Vorlage (Normalfall pro Wochentag) & Daten (Abweichungen pro Datum)
                 stundenplan: {
-                    // Vorlage: Key = "Mo_1", "Di_3" usw. -> Standardbelegung
                     vorlage: {
                         "Mo_1": { fach: "Mathematik", klasse: "4b" },
                         "Mo_2": { fach: "Deutsch", klasse: "4b" }
                     },
-                    // Daten: Key = "YYYY-MM-DD_StundenNr" -> konkrete Einträge/Abweichungen für diesen Tag
                     daten: {
                         "2026-09-14_1": { fach: "Mathematik", klasse: "4b", kurzeintrag: "Klassenarbeit ankündigen!", planungLink: "Satz des Pythagoras Einführung", planungId: "mathe_pythagoras", planungOrdner: "Mathe Klasse 4", freitext: "Einstieg lief super, Levin unruhig.", themenOrdner: "Mathe Klasse 4", sketches: [] },
                         "2026-09-14_2": { fach: "Deutsch", klasse: "4b", kurzeintrag: "", planungLink: "", planungId: "", planungOrdner: "", freitext: "Gedichte rezitieren geübt.", themenOrdner: "Allgemein", sketches: [] }
                     }
                 },
 
-                // SCHUBLADE 2b: Farben für Tage und einzelne Stunden (NEU)
                 farben: {
-                    tage: {},    // { "2026-09-14": "#fde68a" }
-                    stunden: {}  // { "2026-09-14_3": "#bae6fd" }
+                    tage: {},
+                    stunden: {}
                 },
 
-                // SCHUBLADE 3: Schülerkartei & Schülernotizen (Dossier-ready!)
                 schueler: {
                     schuelerListe: [
                         { 
@@ -1594,7 +1560,6 @@
                     ]
                 },
 
-                // SCHUBLADE 4: Unterrichts-Bibliothek (ORDNER & STRUKTURIERTE PLANUNGEN)
                 bibliothek: {
                     ordner: [
                         { 
@@ -1618,12 +1583,10 @@
                     ]
                 },
 
-                // SCHUBLADE 5: Notiz-Archiv (Themenordner)
                 archiv: {
                     themenOrdnerList: ["Allgemein", "Mathe Klasse 4", "Klassenorga", "Methodik"]
                 },
 
-                // UI Status (Wird nicht permanent lokal gespeichert)
                 ui: {
                     showSidebar: false,
                     showCompactNotesPanel: false,
@@ -1631,15 +1594,12 @@
                     activeSlot: { datum: "", stunde: null },
                     schuelerTab: 'personal',
                     showManualFoerderEditor: false,
-                    activeFoerderplanReadOnly: null
+                    activeFoerderplanReadOnly: null,
+                    bewertungenTab: 'noten'
                 }
             });
 
-            // Aktuell angezeigte Woche (Montag-Datum, ISO-Format) - NICHT Teil des persistenten States
             const aktuelleWoche = ref(getMontagDerWoche(toISODate(new Date())));
-            // =========================================================================
-            // CAPACITOR COMPATIBLE STORAGE CORE                                        
-            // =========================================================================
             const STORAGE_KEY = "lehrerapp_v1_data";
 
             const loadData = async () => {
@@ -1658,7 +1618,7 @@
                         const parsed = JSON.parse(saved);
                         state.value.einstellungen = parsed.einstellungen || state.value.einstellungen;
                         if (typeof state.value.einstellungen.darkMode !== 'boolean') state.value.einstellungen.darkMode = false;
-                        state.value.schuljahr = parsed.schuljahr || state.value.schuljahr;
+                        if (typeof state.value.einstellungen.planZoom !== 'number' || isNaN(state.value.einstellungen.planZoom)) state.value.einstellungen.planZoom = 1;
                         state.value.ferien = parsed.ferien || state.value.ferien;
                         state.value.stundenplan = parsed.stundenplan || state.value.stundenplan;
                         state.value.farben = parsed.farben || state.value.farben;
@@ -1669,7 +1629,6 @@
                         state.value.bibliothek = parsed.bibliothek || state.value.bibliothek;
                         state.value.archiv = parsed.archiv || state.value.archiv;
 
-                        // Sicherstellen, dass neue Schülerfelder abwärtskompatibel existieren!
                         state.value.schueler.schuelerListe.forEach(s => {
                             if (!s.geburtsdatum) s.geburtsdatum = "";
                             if (!s.lebenssituation) s.lebenssituation = "";
@@ -1678,7 +1637,6 @@
                             if (!s.ziele) s.ziele = [];
                         });
 
-                        // Abwärtskompatibilität: alte Skizzen-Arrays (Punkt-Listen) in SVG-Pfade umwandeln
                         for (const key in state.value.stundenplan.daten) {
                             const slot = state.value.stundenplan.daten[key];
                             if (slot.sketches && slot.sketches.length > 0 && Array.isArray(slot.sketches[0])) {
@@ -1723,7 +1681,6 @@
                 }
             };
 
-            // FIX: Debounced Autosave - verhindert übermäßig häufige Schreibvorgänge beim Tippen
             let saveTimer = null;
             watch(state, () => {
                 if (saveTimer) clearTimeout(saveTimer);
@@ -1734,24 +1691,69 @@
 
             loadData();
 
-            // =========================================================================
-            // DARK MODE (NEU)
-            // =========================================================================
-            // Computed mit Getter/Setter, damit das Template bequem "darkMode = true/false" schreiben kann
             const darkMode = computed({
                 get: () => state.value.einstellungen.darkMode,
                 set: (val) => { state.value.einstellungen.darkMode = val; }
             });
 
-            // Wendet die "dark"-Klasse auf <html> an, sobald sich darkMode ändert (auch initial nach loadData)
             watch(() => state.value.einstellungen.darkMode, (val) => {
                 document.documentElement.classList.toggle('dark', !!val);
             }, { immediate: true });
 
+            // =========================================================================
+            // STUNDENPLAN-ZOOM (Phase 2/3): Nur die Zellgröße im Stundenplan-Grid wird
+            // skaliert (über die CSS-Variable --plan-zoom), die Schriftgröße bleibt
+            // unverändert. Bedienung per Zwei-Finger-Pinch; Verschieben mit einem
+            // Finger bleibt normales natives Scrollen (kein eigener Code nötig).
+            // =========================================================================
+            const PLAN_ZOOM_MIN = 0.8;
+            const PLAN_ZOOM_MAX = 2;
 
-            // =========================================================================
-            // KALENDER-LOGIK (NEU): Wochen-Navigation, Ferien & Datumsberechnung
-            // =========================================================================
+            const planZoom = computed({
+                get: () => state.value.einstellungen.planZoom,
+                set: (val) => { state.value.einstellungen.planZoom = val; }
+            });
+
+            let pinchStartDistance = null;
+            let pinchStartZoom = 1;
+
+            const getTouchDistance = (touches) => {
+                const dx = touches[0].clientX - touches[1].clientX;
+                const dy = touches[0].clientY - touches[1].clientY;
+                return Math.sqrt(dx * dx + dy * dy);
+            };
+
+            // Startet bei jedem neu aufgesetzten Finger - sobald genau 2 Finger auf dem
+            // Bildschirm sind, wird die Ausgangsdistanz + aktueller Zoom als Basis gemerkt.
+            const onPlanTouchStart = (e) => {
+                if (e.touches.length === 2) {
+                    pinchStartDistance = getTouchDistance(e.touches);
+                    pinchStartZoom = planZoom.value;
+                } else {
+                    pinchStartDistance = null;
+                }
+            };
+
+            // Nur bei genau 2 Fingern wird gezoomt und das native Verhalten unterdrückt.
+            // Bei 1 Finger passiert hier nichts - der Browser scrollt ganz normal weiter.
+            const onPlanTouchMove = (e) => {
+                if (e.touches.length === 2 && pinchStartDistance) {
+                    e.preventDefault();
+                    const currentDistance = getTouchDistance(e.touches);
+                    const scale = currentDistance / pinchStartDistance;
+                    let neuerZoom = pinchStartZoom * scale;
+                    neuerZoom = Math.min(PLAN_ZOOM_MAX, Math.max(PLAN_ZOOM_MIN, neuerZoom));
+                    planZoom.value = neuerZoom;
+                }
+            };
+
+            const onPlanTouchEnd = (e) => {
+                if (e.touches.length < 2) {
+                    pinchStartDistance = null;
+                }
+            };
+
+
             const schuljahrLabel = computed(() => {
                 const startJahr = state.value.schuljahr.start.slice(0, 4);
                 const endeJahr = state.value.schuljahr.ende.slice(0, 4);
@@ -1762,7 +1764,6 @@
                 return state.value.ferien.find(f => isoDate >= f.von && isoDate <= f.bis) || null;
             };
 
-            // Die fünf Tage (Mo-Fr) der aktuell angezeigten Woche
             const wochenTage = computed(() => {
                 return WOCHENTAGE_NAMEN.map((name, i) => {
                     const datum = addDays(aktuelleWoche.value, i);
@@ -1778,7 +1779,6 @@
                 });
             });
 
-            // Ferienname, falls die aktuelle Woche (mind. ein Tag) in den Ferien liegt
             const ferienDieserWoche = computed(() => {
                 for (const tag of wochenTage.value) {
                     if (tag.ferien) return tag.ferien;
@@ -1797,15 +1797,12 @@
             const formatTagLangmitDatum = (isoDate) => {
                 if (!isoDate) return "";
                 const d = new Date(isoDate + "T00:00:00");
-                const wochentagIdx = (d.getDay() + 6) % 7; // Mo=0..So=6
+                const wochentagIdx = (d.getDay() + 6) % 7;
                 const name = wochentagIdx <= 4 ? WOCHENTAGE_NAMEN[wochentagIdx] : (wochentagIdx === 5 ? "Samstag" : "Sonntag");
                 return `${name}, ${formatTagDatum(isoDate)}${d.getFullYear()}`;
             };
 
 
-            // =========================================================================
-            // FARB-LOGIK (NEU): Tage und einzelne Stunden einfärben, Ferien hervorheben
-            // =========================================================================
             const farbpalette = [
                 { name: "Keine Farbe", wert: "" },
                 { name: "Gelb", wert: "#fef08a" },
@@ -1817,7 +1814,7 @@
                 { name: "Grau", wert: "#e5e7eb" }
             ];
 
-            const FERIEN_FARBE = "#fbcfe8"; // rosa - feste Ferienfarbe, hat Vorrang
+            const FERIEN_FARBE = "#fbcfe8";
 
             const getTagFarbe = (datum) => {
                 return state.value.farben.tage[datum] || "";
@@ -1848,7 +1845,6 @@
                 return !!getStundeFarbe(datum, stunde);
             };
 
-            // Style für die Tageskopfzeile: Ferien haben Vorrang vor manueller Farbe
             const getTagFarbeStyle = (tag) => {
                 if (tag.ferien) {
                     return { backgroundColor: FERIEN_FARBE };
@@ -1860,7 +1856,6 @@
                 return tag.heute ? { backgroundColor: '#2563eb' } : { backgroundColor: '#e5e7eb' };
             };
 
-            // Textfarbe je nach Hintergrund (für Lesbarkeit auf hellen/dunklen Farbflächen)
             const getTagTextClass = (tag, secondary) => {
                 if (tag.ferien) return secondary ? 'text-pink-800' : 'text-pink-900 font-bold';
                 const farbe = getTagFarbe(tag.datum);
@@ -1869,7 +1864,6 @@
                 return secondary ? 'text-gray-500' : 'text-gray-700';
             };
 
-            // Style für einzelne Stunden-Zelle: Ferien > manuelle Stundenfarbe
             const getStundeFarbeStyle = (datum, stunde) => {
                 const ferien = getFerienAm(datum);
                 if (ferien) {
@@ -1882,9 +1876,6 @@
                 return {};
             };
 
-            // =========================================================================
-            // EINSTELLUNGEN: FERIENVERWALTUNG (NEU)
-            // =========================================================================
             const fuegeFerienHinzu = () => {
                 if (!neueFerien.value.name.trim() || !neueFerien.value.von || !neueFerien.value.bis) return;
                 if (neueFerien.value.bis < neueFerien.value.von) return;
@@ -1895,7 +1886,6 @@
                     bis: neueFerien.value.bis
                 });
 
-                // Nach Startdatum sortieren, damit die Liste übersichtlich bleibt
                 state.value.ferien.sort((a, b) => a.von.localeCompare(b.von));
 
                 neueFerien.value = { name: "", von: "", bis: "" };
@@ -1905,9 +1895,6 @@
                 state.value.ferien.splice(idx, 1);
             };
 
-            // =========================================================================
-            // EINSTELLUNGEN: ÜBERSICHT EINGEFÄRBTER TAGE/STUNDEN (NEU)
-            // =========================================================================
             const eingefaerbteTage = computed(() => {
                 return Object.entries(state.value.farben.tage)
                     .filter(([datum, farbe]) => !!farbe)
@@ -1927,9 +1914,6 @@
                     .sort((a, b) => a.key.localeCompare(b.key));
             });
 
-            // =========================================================================
-            // EINSTELLUNGEN: STUNDENPLAN-VORLAGEN-EDITOR (NEU)
-            // =========================================================================
             const vorlageWochentage = [
                 { key: "Mo", name: "Montag" },
                 { key: "Di", name: "Dienstag" },
@@ -1938,8 +1922,6 @@
                 { key: "Fr", name: "Freitag" }
             ];
 
-            // Liefert (und erzeugt bei Bedarf) den Vorlage-Eintrag für einen Wochentag/Stunde,
-            // damit v-model direkt darauf binden kann.
             const getVorlageEintrag = (wochentagKey, stundeNo) => {
                 const key = `${wochentagKey}_${stundeNo}`;
                 if (!state.value.stundenplan.vorlage[key]) {
@@ -1966,7 +1948,6 @@
             const selectedPlanInfo = ref(null);
             const selectedThemenOrdner = ref("Allgemein");
             
-            // Neue reaktive Variablen für den inline Plan-Editor
             const activeBibPlan = ref(null);
             const activeBibPlanOrdner = ref("");
             const bibEditMode = ref(false);
@@ -1975,21 +1956,17 @@
             const neuerLinkTitel = ref("");
             const neuerLinkUrl = ref("");
 
-            // Inline Schüleraufnahme (Keine nervigen Prompts!)
             const neuerSchuelerName = ref("");
             const neuerSchuelerKlasse = ref("");
 
-            // Neue Datenstrukturen für Schülerakte
-            const neueNote = ref({ fach: "", typ: "Klassenarbeit", note: "", bemerkung: "", datum: new Date().toISOString().slice(0, 10) });
+            const neueNote = ref({ fach: "", typ: "Klassenarbeit", titel: "", note: "", bemerkung: "", datum: new Date().toISOString().slice(0, 10) });
             const neuerFoerderplan = ref({ titel: "", inhalt: "" });
 
-            // Reaktive Variable für die Sicherheitslöschung
             const activeDeleteConfirm = ref({ type: null, id: null });
 
-            // Erzeugt einen leeren Slot mit Vorlage-Fallback für Fach/Klasse
             const erzeugeLeerenSlot = (datum, stundeNo) => {
                 const d = new Date(datum + "T00:00:00");
-                const wochentagIdx = (d.getDay() + 6) % 7; // Mo=0..Fr=4
+                const wochentagIdx = (d.getDay() + 6) % 7;
                 const vorlageKey = `${VORLAGE_KEYS[wochentagIdx]}_${stundeNo}`;
                 const vorlage = state.value.stundenplan.vorlage[vorlageKey];
 
@@ -2007,9 +1984,6 @@
                 };
             };
 
-            // Wendet die aktuelle Vorlage auf alle Tage zwischen heute und Schuljahresende an,
-            // OHNE bereits individuell befüllte Stunden zu überschreiben (Notizen, Termine,
-            // Skizzen, verknüpfte Planungen bleiben unangetastet).
             const uebernehmeVorlageFuerRestlichesSchuljahr = () => {
                 const heute = toISODate(new Date());
                 const start = heute < state.value.schuljahr.start ? state.value.schuljahr.start : heute;
@@ -2018,14 +1992,14 @@
                 let aktualisiert = 0;
                 let datum = start;
                 let iterationen = 0;
-                const MAX_ITERATIONEN = 800; // Sicherheitsgrenze (~ mehr als 3 Schuljahre an Tagen)
+                const MAX_ITERATIONEN = 800;
 
                 while (datum <= ende && iterationen < MAX_ITERATIONEN) {
                     iterationen++;
                     const d = new Date(datum + "T00:00:00");
-                    const wochentagIdx = (d.getDay() + 6) % 7; // Mo=0..So=6
+                    const wochentagIdx = (d.getDay() + 6) % 7;
 
-                    if (wochentagIdx <= 4) { // nur Mo-Fr
+                    if (wochentagIdx <= 4) {
                         const wtKey = VORLAGE_KEYS[wochentagIdx];
 
                         for (let stundeNo = 1; stundeNo <= 6; stundeNo++) {
@@ -2041,12 +2015,11 @@
                                 (bestehend.sketches && bestehend.sketches.length > 0)
                             );
 
-                            if (hatEigeneInhalte) continue; // Bestehendes nicht überschreiben
+                            if (hatEigeneInhalte) continue;
 
                             if (!bestehend) {
                                 state.value.stundenplan.daten[slotKey] = erzeugeLeerenSlot(datum, stundeNo);
                             }
-                            // Fach/Klasse aus Vorlage übernehmen
                             state.value.stundenplan.daten[slotKey].fach = vorlage.fach || "Freistunde";
                             state.value.stundenplan.daten[slotKey].klasse = vorlage.klasse || "";
                             aktualisiert++;
@@ -2073,7 +2046,113 @@
                 return state.value.stundenplan.daten[key];
             });
 
-            // Holt das selektierte Schülerobjekt inklusive aller erweiterten Array-Daten
+            // =========================================================================
+            // SAMMELBEWERTUNG (NEU): "Bewertungen"-Modul in der Stunden-Sidebar.
+            // Bezieht Klasse, Fach und Datum automatisch aus der gerade geöffneten
+            // Stunde. Schreibt Noten direkt in die jeweilige Schülerakte (s.noten) und
+            // Zielbewertungen direkt in die jeweiligen Ziele (ziel.bewertungen), unter
+            // Verwendung des Stunden-Datums als Tages-Schlüssel - dadurch bleibt die
+            // bestehende "nur einmal pro Tag"-Regel für Ziele unverändert gültig, auch
+            // wenn man eine zurückliegende Stunde nachträglich bewertet.
+            // =========================================================================
+            const sammelKlasse = ref('');
+            const sammelAssignment = ref({ fach: '', typ: 'Klassenarbeit', titel: '' });
+            const sammelNotenEingaben = ref({});
+            const sammelNotenMessage = ref('');
+
+            const klassenListe = computed(() => {
+                const set = new Set(
+                    state.value.schueler.schuelerListe
+                        .map(s => s.klasse)
+                        .filter(k => k && k !== '-')
+                );
+                return Array.from(set).sort();
+            });
+
+            const sammelSchuelerInKlasse = computed(() => {
+                if (!sammelKlasse.value) return [];
+                return state.value.schueler.schuelerListe.filter(s => s.klasse === sammelKlasse.value);
+            });
+
+            // Eine Zeile pro aktivem Ziel; Kinder ganz ohne aktives Ziel bekommen
+            // trotzdem eine Zeile (mit Hinweis), damit sie nicht "verschwinden".
+            const sammelZielZeilen = computed(() => {
+                const zeilen = [];
+                sammelSchuelerInKlasse.value.forEach(s => {
+                    const aktive = (s.ziele || []).filter(z => z.status === 'aktiv');
+                    if (aktive.length === 0) {
+                        zeilen.push({ schueler: s, ziel: null });
+                    } else {
+                        aktive.forEach(z => zeilen.push({ schueler: s, ziel: z }));
+                    }
+                });
+                return zeilen;
+            });
+
+            // Öffnet das Modul und übernimmt Klasse + Fach direkt aus der aktuell
+            // geöffneten Stunde als sinnvolle Vorbelegung (bleibt änderbar).
+            const oeffneBewertungenModul = () => {
+                sammelKlasse.value = activeSlotData.value.klasse && activeSlotData.value.klasse !== '-'
+                    ? activeSlotData.value.klasse
+                    : (klassenListe.value[0] || '');
+                sammelAssignment.value.fach = activeSlotData.value.fach || '';
+                addField('bewertungen');
+            };
+
+            const getSammelNotenEingabe = (schuelerId) => {
+                if (!sammelNotenEingaben.value[schuelerId]) {
+                    sammelNotenEingaben.value[schuelerId] = { note: '', bemerkung: '' };
+                }
+                return sammelNotenEingaben.value[schuelerId];
+            };
+
+            const speichereSammelNoten = () => {
+                if (!sammelAssignment.value.fach.trim()) {
+                    sammelNotenMessage.value = '⚠️ Bitte zuerst ein Fach eintragen.';
+                    setTimeout(() => { sammelNotenMessage.value = ''; }, 3000);
+                    return;
+                }
+                let anzahl = 0;
+                sammelSchuelerInKlasse.value.forEach(s => {
+                    const eingabe = getSammelNotenEingabe(s.id);
+                    if (eingabe.note.trim()) {
+                        s.noten.push({
+                            id: 'g_' + Date.now() + '_' + s.id,
+                            fach: sammelAssignment.value.fach.trim(),
+                            typ: sammelAssignment.value.typ,
+                            titel: sammelAssignment.value.titel.trim(),
+                            note: eingabe.note.trim(),
+                            bemerkung: eingabe.bemerkung.trim(),
+                            datum: state.value.ui.activeSlot.datum
+                        });
+                        eingabe.note = '';
+                        eingabe.bemerkung = '';
+                        anzahl++;
+                    }
+                });
+                sammelNotenMessage.value = anzahl > 0 ? `✔️ ${anzahl} Note(n) gespeichert.` : '⚠️ Keine Noten eingetragen.';
+                setTimeout(() => { sammelNotenMessage.value = ''; }, 4000);
+            };
+
+            // Wie getHeutigeBewertung/setzeZielBewertung, aber mit explizit übergebenem
+            // Datum statt "echtem heute" - so kann auch eine andere Stunde als die von
+            // jetzt (z.B. eine vorige Woche) korrekt und ohne Dopplungen bewertet werden.
+            const getBewertungFuerDatum = (ziel, datum) => {
+                const eintrag = (ziel.bewertungen || []).find(b => b.datum === datum);
+                return eintrag ? eintrag.wert : null;
+            };
+
+            const setzeZielBewertungFuerDatum = (ziel, datum, wert) => {
+                if (!ziel.bewertungen) ziel.bewertungen = [];
+                const bestehend = ziel.bewertungen.find(b => b.datum === datum);
+                if (bestehend) {
+                    bestehend.wert = wert;
+                } else {
+                    ziel.bewertungen.push({ datum, wert });
+                    ziel.bewertungen.sort((a, b) => a.datum.localeCompare(b.datum));
+                }
+            };
+
             const getSelectedSchueler = computed(() => {
                 return state.value.schueler.schuelerListe.find(s => s.id === selectedSchuelerId.value) || null;
             });
@@ -2082,7 +2161,6 @@
                 return state.value.ui.activeFields.length > 0;
             });
 
-            // Stunde antippen & öffnen
             const oeffneStunde = (datum, stundeNo) => {
                 state.value.ui.activeSlot = { datum, stunde: stundeNo };
                 state.value.ui.showSidebar = true;
@@ -2102,7 +2180,6 @@
                 return state.value.ui.activeSlot.datum === datum && state.value.ui.activeSlot.stunde === stundeNo && state.value.ui.showSidebar;
             };
 
-            // Holt Fach mit Fallback auf die Wochenvorlage, falls noch kein konkreter Eintrag existiert
             const getSlotFach = (datum, stundeNo) => {
                 const key = `${datum}_${stundeNo}`;
                 if (state.value.stundenplan.daten[key]) {
@@ -2138,7 +2215,6 @@
                 return zeiten[stundeNo];
             };
 
-            // Module in Sidebar verwalten
             const addField = (fieldName) => {
                 if (!state.value.ui.activeFields.includes(fieldName)) {
                     state.value.ui.activeFields.push(fieldName);
@@ -2159,7 +2235,6 @@
                 }
             };
 
-            // Schülernotizen Actions
             const oeffneSchuelerNotizModal = () => {
                 neueNotiz.value = { schuelerId: "", text: "" };
                 showSchuelerNotizModal.value = true;
@@ -2193,7 +2268,6 @@
                 return state.value.schueler.schuelerNotizen.filter(n => n.datum_key === datum && n.stunde === stunde);
             };
 
-            // Planungsbibliothek Auswahl aus der Sidebar
             const waehlePlanung = (ordnerName, planId, planTitel) => {
                 activeSlotData.value.planungLink = planTitel;
                 activeSlotData.value.planungId = planId;
@@ -2215,7 +2289,6 @@
                 return list;
             });
 
-            // Notizarchiv Logik
             const erstelleOrdner = () => {
                 if (neuerOrdnerName.value.trim() !== "" && !state.value.archiv.themenOrdnerList.includes(neuerOrdnerName.value.trim())) {
                     state.value.archiv.themenOrdnerList.push(neuerOrdnerName.value.trim());
@@ -2265,9 +2338,6 @@
                     state.value.stundenplan.daten[slotKey].themenOrdner = newFolderName;
                 }
             };
-            // ==========================================
-            // PLANUNGSBIBLIOTHEK EDITIERUNG & NAVIGATION
-            // ==========================================
             const oeffneBibliothekZentral = () => {
                 activeBibPlan.value = null;
                 activeBibPlanOrdner.value = "";
@@ -2360,10 +2430,6 @@
                 activeBibPlan.value.tabelle.splice(idx, 1);
             };
 
-
-            // ==========================================
-            // SCHÜLER-ORGANISATION & ERWEITERUNGEN
-            // ==========================================
             const fuegeSchuelerHinzu = () => {
                 if (!neuerSchuelerName.value.trim()) return;
                 
@@ -2386,7 +2452,6 @@
                 neuerSchuelerKlasse.value = "";
             };
 
-            // Noten hinzufügen
             const fuegeNoteHinzu = () => {
                 if (!neueNote.value.fach.trim() || !neueNote.value.note.trim()) return;
                 
@@ -2394,18 +2459,18 @@
                     id: "g_" + Date.now(),
                     fach: neueNote.value.fach.trim(),
                     typ: neueNote.value.typ,
+                    titel: neueNote.value.titel.trim(),
                     note: neueNote.value.note.trim(),
                     bemerkung: neueNote.value.bemerkung.trim(),
                     datum: neueNote.value.datum
                 });
 
-                // Reset Form
                 neueNote.value.fach = "";
+                neueNote.value.titel = "";
                 neueNote.value.note = "";
                 neueNote.value.bemerkung = "";
             };
 
-            // Förderplan manuell anlegen und sichern
             const speichereManuellenFoerderplan = () => {
                 if (!neuerFoerderplan.value.titel.trim() || !neuerFoerderplan.value.inhalt.trim()) return;
 
@@ -2421,7 +2486,6 @@
                 state.value.ui.showManualFoerderEditor = false;
             };
 
-            // FÖRDERPLAN-DATEI EINLESEN (Echter File Import für iPad)
             const importFoerderplan = (event) => {
                 const file = event.target.files[0];
                 if (!file) return;
@@ -2429,7 +2493,6 @@
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const textContent = e.target.result;
-                    // Verwende den Dateinamen ohne Endung als Standardtitel
                     const standardTitel = file.name.replace(/\.[^/.]+$/, "");
 
                     getSelectedSchueler.value.foerderplaene.push({
@@ -2442,12 +2505,10 @@
                 reader.readAsText(file);
             };
 
-            // Öffnet den readonly Förderplan-Betrachter
             const oeffneFoerderplanReadOnly = (planObj) => {
                 state.value.ui.activeFoerderplanReadOnly = planObj;
             };
 
-            // Formatierungshilfe für Datumsanzeigen (z.B. YYYY-MM-DD -> DD.MM.YYYY)
             const formatDatum = (val) => {
                 if (!val) return "-";
                 const parts = val.split("-");
@@ -2458,22 +2519,16 @@
             };
 
 
-            // =========================================================================
-            // ZIELE-TRACKER (NEU): Aktuelle/bisherige Ziele, tägliche Smiley-Bewertung,
-            // Mini-Graph & Tabelle pro Ziel
-            // =========================================================================
             const neuesZiel = ref({ titel: "" });
             const offeneZielAuswertungen = ref([]);
 
             const heuteFormatiert = computed(() => formatDatum(toISODate(new Date())));
 
-            // Aktive Ziele des aktuell ausgewählten Schülers
             const aktiveZiele = computed(() => {
                 if (!getSelectedSchueler.value || !getSelectedSchueler.value.ziele) return [];
                 return getSelectedSchueler.value.ziele.filter(z => z.status === 'aktiv');
             });
 
-            // Abgeschlossene Ziele, neuestes zuerst
             const bisherigeZiele = computed(() => {
                 if (!getSelectedSchueler.value || !getSelectedSchueler.value.ziele) return [];
                 return getSelectedSchueler.value.ziele
@@ -2512,14 +2567,12 @@
                 ziel.endDatum = null;
             };
 
-            // Liefert die heutige Bewertung (1-5) für ein Ziel, oder null wenn noch nicht bewertet
             const getHeutigeBewertung = (ziel) => {
                 const heute = toISODate(new Date());
                 const eintrag = (ziel.bewertungen || []).find(b => b.datum === heute);
                 return eintrag ? eintrag.wert : null;
             };
 
-            // Setzt (oder überschreibt) die heutige Bewertung für ein Ziel
             const setzeZielBewertung = (ziel, wert) => {
                 if (!ziel.bewertungen) ziel.bewertungen = [];
                 const heute = toISODate(new Date());
@@ -2541,15 +2594,12 @@
                 }
             };
 
-            // 5 Smiley-Abstufungen für die Bewertung
             const ZIEL_SMILEYS = ['😢', '🙁', '😐', '🙂', '😄'];
             const ZIEL_SMILEY_LABELS = ['Sehr schlecht', 'Schlecht', 'Mittel', 'Gut', 'Sehr gut'];
 
             const zielSmileyEmoji = (wert) => ZIEL_SMILEYS[Math.min(Math.max(wert, 1), 5) - 1];
             const zielSmileyLabel = (wert) => ZIEL_SMILEY_LABELS[Math.min(Math.max(wert, 1), 5) - 1];
 
-            // Berechnet die Punktkoordinaten für den Mini-Liniengraphen (ViewBox 300x100)
-            // Wert 1 -> y=85 (unten), Wert 5 -> y=15 (oben). X gleichmäßig über die Breite verteilt.
             const zielGraphKreise = (ziel) => {
                 const eintraege = ziel.bewertungen || [];
                 if (eintraege.length === 0) return [];
@@ -2566,9 +2616,6 @@
             };
 
 
-            // =========================================================================
-            // DYNAMISCHE LOESCH-ENGINE (Zwei-Klick Schutz)                             
-            // =========================================================================
             const isConfirming = (type, id) => {
                 return activeDeleteConfirm.value.type === type && activeDeleteConfirm.value.id === id;
             };
@@ -2584,7 +2631,7 @@
                     return;
                 }
 
-                activeDeleteConfirm.value = { type: null, id: null }; // Reset
+                activeDeleteConfirm.value = { type: null, id: null };
 
                 if (type === 'schueler') {
                     state.value.schueler.schuelerListe = state.value.schueler.schuelerListe.filter(s => s.id !== id);
@@ -2627,7 +2674,6 @@
                         state.value.stundenplan.daten[id].freitext = "";
                     }
                 }
-                // Neue spezifische Löschungen für Schülerakte
                 else if (type === 'note') {
                     getSelectedSchueler.value.noten = getSelectedSchueler.value.noten.filter(g => g.id !== id);
                 }
@@ -2637,11 +2683,6 @@
             };
 
 
-            // ==========================================
-            // FIX: VEKTORISIERTE SVG-ZEICHEN LOGIK (statt Canvas/Koordinaten-Arrays)
-            // Speichert Striche als kompakte SVG-Pfad-Strings ("M x,y L x,y ...")
-            // ViewBox ist fest 300x160 -> Koordinaten sind geräteunabhängig
-            // ==========================================
             const isDrawing = ref(false);
             let currentPoints = [];
             const currentPathStr = ref("");
@@ -2692,9 +2733,6 @@
             };
 
 
-            // =========================================================================
-            // CAPACITOR READY EXPORT & IMPORT (DATENSICHERUNG)                        
-            // =========================================================================
             const exportData = async () => {
                 const isCapacitor = typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Filesystem;
                 const dataStr = isCapacitor 
@@ -2785,6 +2823,10 @@
             return {
                 state,
                 darkMode,
+                planZoom,
+                onPlanTouchStart,
+                onPlanTouchMove,
+                onPlanTouchEnd,
                 showSchuelerNotizModal,
                 showLibrarySelection,
                 showSchuelerModal,
@@ -2802,7 +2844,6 @@
                 selectedPlanInfo,
                 selectedThemenOrdner,
 
-                // Kalender / Wochen-Navigation (NEU)
                 aktuelleWoche,
                 wochenTage,
                 schuljahrLabel,
@@ -2815,7 +2856,6 @@
                 getKalenderwoche,
                 addDays,
 
-                // Farben (NEU)
                 farbpalette,
                 getTagFarbe,
                 setzeTagFarbe,
@@ -2826,18 +2866,15 @@
                 getTagTextClass,
                 getStundeFarbeStyle,
 
-                // Ferienverwaltung & Übersichten (NEU)
                 fuegeFerienHinzu,
                 entferneFerien,
                 eingefaerbteTage,
                 eingefaerbteStunden,
 
-                // Stundenplan-Vorlagen-Editor (NEU)
                 vorlageWochentage,
                 getVorlageEintrag,
                 uebernehmeVorlageFuerRestlichesSchuljahr,
                 
-                // Refs & Methoden für Planungsbibliothek
                 activeBibPlan,
                 activeBibPlanOrdner,
                 bibEditMode,
@@ -2854,12 +2891,24 @@
                 fuegeTabellenZeileHinzu,
                 loescheTabellenZeile,
 
-                // Schüleraufnahme, Akte, Noten & Förderpläne
                 neuerSchuelerName,
                 neuerSchuelerKlasse,
                 fuegeSchuelerHinzu,
                 getSelectedSchueler,
                 neueNote,
+
+                // Sammelbewertung (NEU): Bewertungen-Modul in der Stunden-Sidebar
+                sammelKlasse,
+                sammelAssignment,
+                sammelNotenMessage,
+                klassenListe,
+                sammelSchuelerInKlasse,
+                sammelZielZeilen,
+                oeffneBewertungenModul,
+                getSammelNotenEingabe,
+                speichereSammelNoten,
+                getBewertungFuerDatum,
+                setzeZielBewertungFuerDatum,
                 neuerFoerderplan,
                 fuegeNoteHinzu,
                 speichereManuellenFoerderplan,
@@ -2867,7 +2916,6 @@
                 oeffneFoerderplanReadOnly,
                 formatDatum,
 
-                // Ziele-Tracker (NEU)
                 neuesZiel,
                 offeneZielAuswertungen,
                 heuteFormatiert,
@@ -2884,7 +2932,6 @@
                 zielGraphKreise,
                 zielGraphPunkte,
 
-                // Löschen & Bestätigung
                 isConfirming,
                 triggerDelete,
 
@@ -2912,7 +2959,6 @@
                 exportData,
                 importData,
 
-                // SVG-Skizzenlogik (NEU statt Canvas)
                 currentPathStr,
                 startDraw,
                 moveDraw,
@@ -2922,11 +2968,6 @@
         }
     }).mount('#app');
 
-    // =========================================================================
-    // PWA: SERVICE WORKER REGISTRIEREN (Offline-Funktion)
-    // =========================================================================
-    // Registriert sw.js, damit alle Assets (HTML, CSS, JS, Icons) gecacht
-    // werden und die App auch ohne Internetverbindung vollständig läuft.
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('sw.js')
