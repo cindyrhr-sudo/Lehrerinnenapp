@@ -1738,8 +1738,7 @@
             <!-- Hintergrund-Klick schließt Kalender -->
             <div class="fixed inset-0" style="z-index:49;cursor:default" @click.stop="state.ui.showWochenKalender = false" @touchstart.stop="state.ui.showWochenKalender = false"></div>
 
-            <div class="relative z-10 rounded-2xl shadow-2xl p-4 s-card s-border" style="width:280px;border-width:1px;border-style:solid">
-
+            <div class="relative z-10 rounded-2xl shadow-2xl p-4 s-border" style="width:280px;border-width:1px;border-style:solid;background:var(--bg-surface);box-shadow:0 20px 60px rgba(0,0,0,0.45)">
                 <!-- Monats-Header -->
                 <div class="flex justify-between items-center mb-3">
                     <button @click="kalenderMonatVorOderZurueck(-1)" class="p-1.5 rounded-lg s-hover t2">
