@@ -280,33 +280,6 @@
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600 dark:text-gray-300 t2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                 </button>
 
-                <!-- Ausklappbarer Wochen-Kalender -->
-                <transition enter-active-class="transition ease-out duration-150" enter-from-class="opacity-0 -translate-y-1" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition ease-in duration-100" leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-1">
-                    <div v-if="state.ui.showWochenKalender" class="absolute top-full left-0 mt-2 w-72 rounded-2xl shadow-2xl z-30 p-3 s-card s-border" style="border-width:1px;border-style:solid">
-                        <div class="flex justify-between items-center mb-2">
-                            <button @click="kalenderMonatVorOderZurueck(-1)" class="p-1 rounded-lg s-hover t2">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                            </button>
-                            <span class="text-xs font-bold t1">{{ kalenderMonatLabel }}</span>
-                            <button @click="kalenderMonatVorOderZurueck(1)" class="p-1 rounded-lg s-hover t2">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-                            </button>
-                        </div>
-                        <div class="grid grid-cols-7 gap-1 mb-1">
-                            <span v-for="wt in ['Mo','Di','Mi','Do','Fr','Sa','So']" :key="wt" class="text-[9px] font-bold text-center t3">{{ wt }}</span>
-                        </div>
-                        <div class="grid grid-cols-7 gap-1">
-                            <button v-for="tag in kalenderTage" :key="tag.datum"
-                                    @click="waehleKalenderTag(tag.datum)"
-                                    :class="['text-[10px] py-1.5 rounded-lg transition relative',
-                                             !tag.imMonat ? 't3 opacity-40' : 't1',
-                                             tag.istAktuelleWoche ? 'acc-unt-soft' : 's-hover']">
-                                {{ tag.tagNr }}
-                                <span v-if="tag.heute" class="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full acc-ter-solid" style="background:var(--ter-solid)"></span>
-                            </button>
-                        </div>
-                    </div>
-                </transition>
             </div>
 
             <button @click="showBackupModal = true" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition dark:bg-emerald-950">
@@ -1755,6 +1728,70 @@
             </div>
         </div>
     </div>
+
+    <!-- WOCHEN-KALENDER (POPUP): fixed, volle z-Ebene, garantiert über allem -->
+    <transition enter-active-class="transition ease-out duration-150" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100" leave-active-class="transition ease-in duration-100" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
+        <div v-if="state.ui.showWochenKalender"
+             class="fixed z-50"
+             style="top: 70px; left: 50%; transform: translateX(-50%);">
+
+            <!-- Hintergrund-Klick schließt Kalender -->
+            <div class="fixed inset-0 z-0" @click="state.ui.showWochenKalender = false"></div>
+
+            <div class="relative z-10 rounded-2xl shadow-2xl p-4 s-card s-border" style="width:280px;border-width:1px;border-style:solid">
+
+                <!-- Monats-Header -->
+                <div class="flex justify-between items-center mb-3">
+                    <button @click="kalenderMonatVorOderZurueck(-1)" class="p-1.5 rounded-lg s-hover t2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                    </button>
+                    <span class="text-sm font-bold t1">{{ kalenderMonatLabel }}</span>
+                    <button @click="kalenderMonatVorOderZurueck(1)" class="p-1.5 rounded-lg s-hover t2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    </button>
+                </div>
+
+                <!-- Wochentag-Header -->
+                <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px">
+                    <span v-for="wt in ['Mo','Di','Mi','Do','Fr','Sa','So']" :key="wt"
+                          style="text-align:center;font-size:10px;font-weight:700;padding:2px 0"
+                          class="t3">{{ wt }}</span>
+                </div>
+
+                <!-- Tage-Raster: 6 × 7 -->
+                <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">
+                    <button v-for="tag in kalenderTage" :key="tag.datum"
+                            @click="waehleKalenderTag(tag.datum)"
+                            :class="[
+                                tag.heute ? 'acc-unt-solid' : (tag.istAktuelleWoche ? 'acc-unt-soft' : 's-hover'),
+                            ]"
+                            :style="{
+                                textAlign: 'center',
+                                fontSize: '12px',
+                                fontWeight: tag.heute ? '700' : '400',
+                                padding: '5px 2px',
+                                borderRadius: '8px',
+                                opacity: !tag.imMonat ? '0.35' : '1',
+                                cursor: 'pointer',
+                                color: tag.heute ? '#fff' : 'inherit'
+                            }">
+                        {{ tag.tagNr }}
+                    </button>
+                </div>
+
+                <!-- Legende -->
+                <div class="flex items-center gap-3 mt-3 pt-2" style="border-top:1px solid var(--border-2)">
+                    <span class="flex items-center gap-1 text-[10px] t3">
+                        <span style="width:10px;height:10px;border-radius:50%;background:var(--unt-solid);display:inline-block"></span> Heute
+                    </span>
+                    <span class="flex items-center gap-1 text-[10px] t3">
+                        <span style="width:10px;height:10px;border-radius:4px;background:var(--unt-soft-bg);display:inline-block"></span> Akt. Woche
+                    </span>
+                </div>
+
+            </div>
+        </div>
+    </transition>
 
 </div>
 
