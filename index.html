@@ -2455,7 +2455,7 @@
                             if (!bestehend) {
                                 state.value.stundenplan.daten[slotKey] = erzeugeLeerenSlot(datum, stundeNo);
                             }
-                            state.value.stundenplan.daten[slotKey].fach = vorlage.fach || "Freistunde";
+                            state.value.stundenplan.daten[slotKey].fach = vorlage.fach || "";
                             state.value.stundenplan.daten[slotKey].klasse = vorlage.klasse || "";
                             aktualisiert++;
                         }
@@ -2626,12 +2626,12 @@
                 const wochentagIdx = (d.getDay() + 6) % 7;
                 const vorlageKey = `${VORLAGE_KEYS[wochentagIdx]}_${stundeNo}`;
                 const vorlage = state.value.stundenplan.vorlage[vorlageKey];
-                return vorlage ? vorlage.fach : "Freistunde";
+                return vorlage ? vorlage.fach : "";
             };
 
             const getSlotKlasse = (datum, stundeNo) => {
                 const fach = getSlotFach(datum, stundeNo);
-                if (fach === "Freistunde") return "";
+                if (fach === "") return "";
                 const key = `${datum}_${stundeNo}`;
                 if (state.value.stundenplan.daten[key]) {
                     return state.value.stundenplan.daten[key].klasse;
