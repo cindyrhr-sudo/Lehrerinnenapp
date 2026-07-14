@@ -11,9 +11,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Schulplaner">
-    <link rel="apple-touch-icon" href="icons/icon-192.png">
-    <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
-    <link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512.png">
+    <link rel="apple-touch-icon" href="icons/icon-192a.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192a.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512a.png">
 
     <script src="js/vue.global.js"></script>
     <link href="css/tailwind.css" rel="stylesheet">
@@ -35,10 +35,13 @@
            Dunkler Modus orientiert sich an der App-Hintergrundfarbe #222d1e.
            =================================================================== */
         :root {
-            --bg-page: #f2f2f7;
-            --bg-surface: #ffffff;
-            --bg-surface-2: #f6f7f4;
-            --bg-surface-3: #eef0ea;
+            /* Migräne-freundlich abgetönt: kein reines Weiß und kein kühles
+               Blaugrau mehr, sondern warme, gedeckte Töne. Die drei Ebenen
+               bleiben weiterhin klar unterscheidbar. */
+            --bg-page: #eef0e8;
+            --bg-surface: #fbfaf5;
+            --bg-surface-2: #f4f5ee;
+            --bg-surface-3: #e9ebe1;
             --border-1: #dcdfd6;
             --border-2: #e9ebe5;
             --text-1: #2a2e27;
@@ -65,9 +68,8 @@
             --danger-soft-bg: #fbe9e7; --danger-soft-bg-hover: #f6d8d4; --danger-soft-text: #a13a30;
             --danger-border: #f0c2bc;
 
-            --confirm-bg: #f5d568; --confirm-text: #4a3c08;
+            --confirm-bg: #e8c976; --confirm-text: #4a3c08;
             --ferien-bg: #fbcfe8;
-            --cell-bg: #e7ece1;
         }
         html.dark {
             --bg-page: #222d1e;
@@ -100,9 +102,8 @@
             --danger-soft-bg: #3a2521; --danger-soft-bg-hover: #462e29; --danger-soft-text: #f0a89d;
             --danger-border: #5c3a34;
 
-            --confirm-bg: #d4b14a; --confirm-text: #2b2305;
+            --confirm-bg: #c9a758; --confirm-text: #2b2305;
             --ferien-bg: #5c2a44;
-            --cell-bg: #344530;
         }
 
         /* Neutrale Bausteine (ersetzen bg-white/bg-gray-*/text-gray-* + ihre dark:-Paare) */
@@ -178,12 +179,6 @@
         .warn-soft { background: #faf0dc; color: #7a520d; }
         html.dark .warn-soft { background: #3a2f17; color: #f0c878; }
 
-        /* Stundenplan-Zellen: bewusst eigene Hintergrundfarbe (nicht s-card),
-           damit sie sich sichtbar vom Seitenhintergrund abheben - im Dark-Mode
-           heller, im Light-Mode dunkler mit Grünstich. */
-        .cell-bg { background: var(--cell-bg); color: var(--text-1); }
-        .cell-bg:hover { filter: brightness(1.04); }
-
         /* Stundenplan: "heute"-Markierung und "ausgewählte Stunde"-Zustand */
         .ring-today { box-shadow: 0 0 0 2px var(--unt-solid); }
         .cell-selected { background: var(--unt-soft-bg); border-color: var(--unt-border) !important; box-shadow: 0 0 0 2px var(--unt-ring); }
@@ -254,6 +249,28 @@
         .color-dot.active {
             border: 2px solid var(--text-1);
         }
+
+        /* ===================================================================
+           FEHLENDE TAILWIND-UTILITY-KLASSEN (Nachtrag)
+           Diese Klassen werden im Markup verwendet, fehlten aber im statisch
+           vorkompilierten css/tailwind.css-Build und wurden dadurch bisher
+           lautlos ignoriert (kein Fehler, einfach kein Styling). Handschriftlich
+           mit denselben Werten nachgezogen, die Tailwind selbst erzeugen würde.
+           =================================================================== */
+        .shadow-xs {
+            --tw-shadow: 0 1px 2px 0 rgba(0,0,0,.05);
+            --tw-shadow-colored: 0 1px 2px 0 var(--tw-shadow-color);
+            box-shadow: var(--tw-ring-offset-shadow,0 0 #0000), var(--tw-ring-shadow,0 0 #0000), var(--tw-shadow);
+        }
+        .max-w-2xl { max-width: 42rem; }
+        .max-w-lg { max-width: 32rem; }
+        .max-h-\[85vh\] { max-height: 85vh; }
+
+        /* iPad-Anpassung: die feste 700px-Mindestbreite des Stundenplan-Grids
+           ist jetzt eine eigene Klasse (statt einer neuen Tailwind-Bracket-Klasse,
+           die im statischen Build sonst ebenfalls unsichtbar wäre). 640px lässt
+           auf schmaleren iPads (z.B. iPad mini im Hochformat) mehr Luft. */
+        .grid-min-w-plan { min-width: 640px; }
     </style>
 </head>
 <body class="overflow-hidden select-none">
@@ -266,23 +283,19 @@
             <p class="text-xs text-gray-500 dark:text-gray-400 t2">Schuljahr {{ schuljahrLabel }} • iPad Core </p>
         </div>
         <div class="flex items-center gap-2">
-            <div class="flex items-center gap-1 bg-gray-100 rounded-xl p-1 dark:bg-gray-700 s-panel-soft relative">
+            <div class="flex items-center gap-1 bg-gray-100 rounded-xl p-1 dark:bg-gray-700 s-panel-soft">
                 <button @click="wocheVorOderZurueck(-7)" class="p-1.5 hover:bg-white rounded-lg transition dark:hover:bg-gray-600" title="Vorherige Woche">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600 dark:text-gray-300 t2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
                 </button>
-                <button @click="springeZuHeute" :class="['px-3 py-1 rounded-lg text-xs font-semibold shadow-xs whitespace-nowrap transition', istAktuelleWoche ? 'acc-unt-solid' : 's-card acc-unt-text']" title="Zur aktuellen Woche springen">
+                <button @click="springeZuHeute" class="px-3 py-1 rounded-lg text-xs font-semibold shadow-xs whitespace-nowrap s-card acc-unt-text" title="Zur aktuellen Woche springen">
                     KW {{ getKalenderwoche(aktuelleWoche) }} • {{ formatTagDatum(aktuelleWoche) }}–{{ formatTagDatum(addDays(aktuelleWoche, 4)) }}
-                </button>
-                <button @click="oeffneWochenKalender" class="p-1.5 hover:bg-white rounded-lg transition dark:hover:bg-gray-600" title="Woche aus Kalender wählen">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600 dark:text-gray-300 t2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                 </button>
                 <button @click="wocheVorOderZurueck(7)" class="p-1.5 hover:bg-white rounded-lg transition dark:hover:bg-gray-600" title="Nächste Woche">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600 dark:text-gray-300 t2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                 </button>
-
             </div>
 
-            <button @click="showBackupModal = true" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition dark:bg-emerald-950">
+            <button @click="showBackupModal = true" class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition acc-unt-soft acc-unt-border" style="border-width:1px;border-style:solid">
                 <span>💾 Datensicherung</span>
             </button>
             <span v-if="ferienDieserWoche" class="px-3 py-1 rounded-full text-xs font-semibold ferien-badge ferien-text">
@@ -295,10 +308,10 @@
     </header>
     <main class="flex-1 flex overflow-hidden relative">
         
-        <div class="flex-1 p-6 overflow-y-auto custom-scroll transition-all duration-300"
-             :style="{ marginRight: state.ui.showSidebar ? (state.ui.sidebarBreit ? '48rem' : '24rem') : '0' }"
+        <div class="flex-1 p-6 overflow-y-auto overflow-x-auto custom-scroll transition-all duration-300"
+             :style="{ marginRight: state.ui.showSidebar ? (state.ui.sidebarBreit ? 'min(38rem, 85vw)' : 'min(22rem, 80vw)') : '0' }"
              @touchstart="onPlanTouchStart" @touchmove="onPlanTouchMove" @touchend="onPlanTouchEnd" @touchcancel="onPlanTouchEnd">
-            <div class="grid gap-3 h-full min-w-[700px]" :style="{ gridTemplateColumns: '70px repeat(5, 1fr)', '--plan-zoom': planZoom }">
+            <div class="grid gap-3 h-full grid-min-w-plan" :style="{ gridTemplateColumns: '70px repeat(5, 1fr)', '--plan-zoom': planZoom }">
                 
                 <div class="flex flex-col zoom-gap justify-end pb-2">
                     <div class="h-10"></div>
@@ -322,7 +335,7 @@
                          :class="[
                             'flex-1 zoom-row zoom-pad rounded-xl border transition-all cursor-pointer flex flex-col justify-between relative overflow-hidden',
                             isStundeSelected(tag.datum, stundeNo) ? 'cell-selected' : 
-                            (getSlotData(tag.datum, stundeNo)?.kurzeintrag ? 'acc-ter-soft acc-ter-border shadow-xs' : (hatStundeFarbe(tag.datum, stundeNo) ? 's-border hover:shadow-xs' : 'cell-bg hover:shadow-xs')),
+                            (getSlotData(tag.datum, stundeNo)?.kurzeintrag ? 'acc-ter-soft acc-ter-border shadow-xs' : (hatStundeFarbe(tag.datum, stundeNo) ? 's-border hover:shadow-xs' : 's-card s-hover hover:shadow-xs')),
                             'dark:border-gray-700'
                          ]">
                         
@@ -361,13 +374,28 @@
 
         <transition enter-active-class="transform transition ease-in-out duration-300" enter-from-class="translate-x-full" enter-to-class="translate-x-0" leave-active-class="transform transition ease-in-out duration-300" leave-from-class="translate-x-0" leave-to-class="translate-x-full">
             <div v-if="state.ui.showSidebar" class="absolute right-0 top-0 bottom-0 bg-white border-l border-gray-200 shadow-2xl z-20 flex flex-col justify-between dark:bg-gray-800 dark:border-gray-700 s-card s-border"
-                 :style="{ width: state.ui.sidebarBreit ? '48rem' : '24rem', transition: 'width 0.2s ease' }">
+                 :style="{ width: state.ui.sidebarBreit ? 'min(38rem, 85vw)' : 'min(22rem, 80vw)', transition: 'width 0.2s ease' }">
                 
                 <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 dark:border-gray-700 dark:bg-gray-800 s-card-soft s-border-soft">
                     <div>
                         <span class="text-[10px] font-bold uppercase tracking-wider acc-unt-text">Details zur Stunde</span>
                         <h3 class="text-base font-bold text-gray-800 dark:text-gray-100 t1">{{ formatTagLangmitDatum(state.ui.activeSlot.datum) }}, {{ state.ui.activeSlot.stunde }}. Stunde</h3>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 t2" v-if="activeSlotData">{{ activeSlotData.fach }} • Klasse {{ activeSlotData.klasse }}</p>
+                        <div class="flex items-center gap-1.5 mt-1" v-if="activeSlotData">
+                            <input type="text" v-model="activeSlotData.fach" placeholder="Fach"
+                                   class="w-24 rounded-md px-1.5 py-1 text-xs font-semibold focus:outline-none s-input acc-unt-ring t1">
+                            <span class="text-xs t3">•</span>
+                            <input type="text" v-model="activeSlotData.klasse" placeholder="Klasse"
+                                   class="w-16 rounded-md px-1.5 py-1 text-xs focus:outline-none s-input acc-unt-ring t1">
+                            <button v-if="istAbweichendVonVorlage(state.ui.activeSlot.datum, state.ui.activeSlot.stunde)"
+                                    @click="setzeSlotAufVorlageZurueck"
+                                    class="ml-0.5 px-1.5 py-1 rounded-md text-[10px] font-bold transition acc-unt-soft"
+                                    title="Zurück zur regulären Stundenplan-Vorlage für diesen Wochentag">
+                                ↺
+                            </button>
+                        </div>
+                        <p class="text-[9px] t3 mt-0.5" v-if="activeSlotData && istAbweichendVonVorlage(state.ui.activeSlot.datum, state.ui.activeSlot.stunde)">
+                            Abweichend von der Vorlage – gilt nur für diesen Tag.
+                        </p>
                     </div>
                     <div class="flex items-center gap-1">
                         <button class="p-1.5 hover:bg-gray-200 rounded-full text-gray-400 hover:text-gray-600 transition dark:hover:bg-gray-600 dark:text-gray-500 t2 s-hover" @click="state.ui.sidebarBreit = !state.ui.sidebarBreit" :title="state.ui.sidebarBreit ? 'Schmaler anzeigen' : 'Breiter anzeigen'">
@@ -390,24 +418,26 @@
                         <div>
                             <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5 dark:text-gray-500 t2">🎨 Tag einfärben ({{ state.ui.activeSlot.datum }})</span>
                             <div class="flex items-center gap-2 flex-wrap">
-                                <div v-for="farbe in farbpalette" :key="'tag_'+farbe.wert"
-                                     class="color-dot" :class="{'active': getTagFarbe(state.ui.activeSlot.datum) === farbe.wert}"
-                                     :style="{ backgroundColor: farbe.wert || '#ffffff', border: !farbe.wert ? '2px dashed #d1d5db' : undefined }"
+                                <div v-for="farbe in farbpalette" :key="'tag_'+farbe.id"
+                                     class="color-dot" :class="{'active': getTagFarbe(state.ui.activeSlot.datum) === farbe.id}"
+                                     :style="{ backgroundColor: resolveFarbe(farbe.id) || 'var(--bg-surface)', border: !farbe.id ? '2px dashed var(--border-1)' : undefined }"
                                      :title="farbe.name"
-                                     @click="setzeTagFarbe(state.ui.activeSlot.datum, farbe.wert)">
+                                     @click="setzeTagFarbe(state.ui.activeSlot.datum, farbe.id)">
                                 </div>
                             </div>
+                            <p class="text-[9px] t3 mt-1">Färbt automatisch alle Stunden dieses Tages ein.</p>
                         </div>
                         <div class="pt-2 border-t border-gray-100 dark:border-gray-700 s-border-soft">
                             <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5 dark:text-gray-500 t2">🎨 Diese Stunde einfärben</span>
                             <div class="flex items-center gap-2 flex-wrap">
-                                <div v-for="farbe in farbpalette" :key="'stunde_'+farbe.wert"
-                                     class="color-dot" :class="{'active': getStundeFarbe(state.ui.activeSlot.datum, state.ui.activeSlot.stunde) === farbe.wert}"
-                                     :style="{ backgroundColor: farbe.wert || '#ffffff', border: !farbe.wert ? '2px dashed #d1d5db' : undefined }"
+                                <div v-for="farbe in farbpalette" :key="'stunde_'+farbe.id"
+                                     class="color-dot" :class="{'active': getStundeFarbe(state.ui.activeSlot.datum, state.ui.activeSlot.stunde) === farbe.id}"
+                                     :style="{ backgroundColor: resolveFarbe(farbe.id) || 'var(--bg-surface)', border: !farbe.id ? '2px dashed var(--border-1)' : undefined }"
                                      :title="farbe.name"
-                                     @click="setzeStundeFarbe(state.ui.activeSlot.datum, state.ui.activeSlot.stunde, farbe.wert)">
+                                     @click="setzeStundeFarbe(state.ui.activeSlot.datum, state.ui.activeSlot.stunde, farbe.id)">
                                 </div>
                             </div>
+                            <p class="text-[9px] t3 mt-1">Überschreibt die Tagesfarbe nur für diese eine Stunde.</p>
                         </div>
                     </div>
                     
@@ -727,12 +757,12 @@
 
     <div v-if="showBackupModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200 dark:bg-gray-800 s-card">
-            <div class="bg-emerald-600 text-white px-5 py-4 flex justify-between items-center shrink-0">
+            <div class="acc-unt-solid px-5 py-4 flex justify-between items-center shrink-0">
                 <div>
                     <h3 class="text-base font-bold">💾 Lokale Datensicherung (Backup)</h3>
-                    <p class="text-xs text-emerald-100">Sichere deine Pläne unabhängig von Safari</p>
+                    <p class="text-xs" style="color:rgba(255,255,255,0.8)">Sichere deine Pläne unabhängig von Safari</p>
                 </div>
-                <button @click="showBackupModal = false" class="text-emerald-100 hover:text-white transition">
+                <button @click="showBackupModal = false" class="modal-close transition">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
@@ -745,7 +775,7 @@
                 <div class="space-y-2">
                     <h4 class="text-sm font-bold text-gray-800 dark:text-gray-100 t1">1. Daten sichern (Export)</h4>
                     <p class="text-xs text-gray-500 dark:text-gray-400 t2">Erstellt eine Sicherungsdatei, die du auf deinem iPad oder PC speichern kannst.</p>
-                    <button @click="exportData" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition">
+                    <button @click="exportData" class="w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition acc-unt-solid">
                         <span>📥 Backup-Datei jetzt exportieren</span>
                     </button>
                 </div>
@@ -1598,7 +1628,7 @@
                         <h5 class="text-xs font-bold acc-unt-text uppercase tracking-wider">Aktuell eingefärbte Tage</h5>
                         <div v-if="eingefaerbteTage.length > 0" class="space-y-2">
                             <div v-for="eintrag in eingefaerbteTage" :key="eintrag.datum" class="flex items-center gap-3 bg-stone-50 border border-gray-100 rounded-xl p-2.5 dark:bg-gray-900 dark:border-gray-700 s-card-soft s-border-soft">
-                                <div class="w-6 h-6 rounded-full shrink-0" :style="{ backgroundColor: eintrag.farbe }"></div>
+                                <div class="w-6 h-6 rounded-full shrink-0" :style="{ backgroundColor: resolveFarbe(eintrag.farbe) }"></div>
                                 <span class="text-xs font-semibold text-gray-700 flex-1 dark:text-gray-200 t1">{{ formatDatumLang(eintrag.datum) }}</span>
                                 <button @click="setzeTagFarbe(eintrag.datum, '')" class="px-2.5 py-1 rounded-lg text-[10px] font-bold transition danger-soft">Entfernen</button>
                             </div>
@@ -1612,7 +1642,7 @@
                         <h5 class="text-xs font-bold acc-unt-text uppercase tracking-wider">Aktuell eingefärbte einzelne Stunden</h5>
                         <div v-if="eingefaerbteStunden.length > 0" class="space-y-2">
                             <div v-for="eintrag in eingefaerbteStunden" :key="eintrag.key" class="flex items-center gap-3 bg-stone-50 border border-gray-100 rounded-xl p-2.5 dark:bg-gray-900 dark:border-gray-700 s-card-soft s-border-soft">
-                                <div class="w-6 h-6 rounded-full shrink-0" :style="{ backgroundColor: eintrag.farbe }"></div>
+                                <div class="w-6 h-6 rounded-full shrink-0" :style="{ backgroundColor: resolveFarbe(eintrag.farbe) }"></div>
                                 <span class="text-xs font-semibold text-gray-700 flex-1 dark:text-gray-200 t1">{{ formatDatumLang(eintrag.datum) }} • {{ eintrag.stunde }}. Stunde</span>
                                 <button @click="setzeStundeFarbe(eintrag.datum, eintrag.stunde, '')" class="px-2.5 py-1 rounded-lg text-[10px] font-bold transition danger-soft">Entfernen</button>
                             </div>
@@ -1729,69 +1759,6 @@
         </div>
     </div>
 
-    <!-- WOCHEN-KALENDER (POPUP): fixed, volle z-Ebene, garantiert über allem -->
-    <transition enter-active-class="transition ease-out duration-150" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100" leave-active-class="transition ease-in duration-100" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
-        <div v-if="state.ui.showWochenKalender"
-             class="fixed z-50"
-             style="top: 70px; left: 50%; transform: translateX(-50%);">
-
-            <!-- Hintergrund-Klick schließt Kalender -->
-            <div class="fixed inset-0" style="z-index:49;cursor:default" @click.stop="state.ui.showWochenKalender = false" @touchstart.stop="state.ui.showWochenKalender = false"></div>
-
-            <div class="relative z-10 rounded-2xl shadow-2xl p-4 s-border" style="width:280px;border-width:1px;border-style:solid;background:var(--bg-surface);box-shadow:0 20px 60px rgba(0,0,0,0.45)">
-                <!-- Monats-Header -->
-                <div class="flex justify-between items-center mb-3">
-                    <button @click="kalenderMonatVorOderZurueck(-1)" class="p-1.5 rounded-lg s-hover t2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                    </button>
-                    <span class="text-sm font-bold t1">{{ kalenderMonatLabel }}</span>
-                    <button @click="kalenderMonatVorOderZurueck(1)" class="p-1.5 rounded-lg s-hover t2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-                    </button>
-                </div>
-
-                <!-- Wochentag-Header -->
-                <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px">
-                    <span v-for="wt in ['Mo','Di','Mi','Do','Fr','Sa','So']" :key="wt"
-                          style="text-align:center;font-size:10px;font-weight:700;padding:2px 0"
-                          class="t3">{{ wt }}</span>
-                </div>
-
-                <!-- Tage-Raster: 6 × 7 -->
-                <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">
-                    <button v-for="tag in kalenderTage" :key="tag.datum"
-                            @click="waehleKalenderTag(tag.datum)"
-                            :class="[
-                                tag.heute ? 'acc-unt-solid' : (tag.istAktuelleWoche ? 'acc-unt-soft' : 's-hover'),
-                            ]"
-                            :style="{
-                                textAlign: 'center',
-                                fontSize: '12px',
-                                fontWeight: tag.heute ? '700' : '400',
-                                padding: '5px 2px',
-                                borderRadius: '8px',
-                                opacity: !tag.imMonat ? '0.35' : '1',
-                                cursor: 'pointer',
-                                color: tag.heute ? '#fff' : 'inherit'
-                            }">
-                        {{ tag.tagNr }}
-                    </button>
-                </div>
-
-                <!-- Legende -->
-                <div class="flex items-center gap-3 mt-3 pt-2" style="border-top:1px solid var(--border-2)">
-                    <span class="flex items-center gap-1 text-[10px] t3">
-                        <span style="width:10px;height:10px;border-radius:50%;background:var(--unt-solid);display:inline-block"></span> Heute
-                    </span>
-                    <span class="flex items-center gap-1 text-[10px] t3">
-                        <span style="width:10px;height:10px;border-radius:4px;background:var(--unt-soft-bg);display:inline-block"></span> Akt. Woche
-                    </span>
-                </div>
-
-            </div>
-        </div>
-    </transition>
-
 </div>
 
 <script>
@@ -1799,7 +1766,6 @@
 
     const WOCHENTAGE_NAMEN = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
     const VORLAGE_KEYS = ["Mo", "Di", "Mi", "Do", "Fr"];
-    const MONATS_NAMEN = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
 
     function toISODate(date) {
         const y = date.getFullYear();
@@ -1971,13 +1937,32 @@
                     activeFoerderplanReadOnly: null,
                     bewertungenTab: 'noten',
                     showFarbModul: false,
-                    sidebarBreit: false,
-                    showWochenKalender: false
+                    sidebarBreit: false
                 }
             });
 
             const aktuelleWoche = ref(getMontagDerWoche(toISODate(new Date())));
             const STORAGE_KEY = "lehrerapp_v1_data";
+
+            // Alte, direkt gespeicherte Hex-Farbwerte (aus der Zeit vor der
+            // darkmode-fähigen Farbpalette weiter unten) auf die neuen stabilen
+            // Farb-IDs migrieren. Muss VOR loadData() stehen, da loadData sofort
+            // synchron aufgerufen wird und diese Funktion braucht.
+            const LEGACY_HEX_ZU_ID = {
+                "#fef08a": "gelb", "#fed7aa": "orange", "#fecaca": "rot",
+                "#bbf7d0": "gruen", "#bae6fd": "blau", "#e9d5ff": "lila", "#e5e7eb": "grau"
+            };
+            const migriereFarben = (farben) => {
+                if (!farben) return;
+                for (const k in (farben.tage || {})) {
+                    const v = farben.tage[k];
+                    if (LEGACY_HEX_ZU_ID[v]) farben.tage[k] = LEGACY_HEX_ZU_ID[v];
+                }
+                for (const k in (farben.stunden || {})) {
+                    const v = farben.stunden[k];
+                    if (LEGACY_HEX_ZU_ID[v]) farben.stunden[k] = LEGACY_HEX_ZU_ID[v];
+                }
+            };
 
             const loadData = async () => {
                 const isCapacitor = typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Preferences;
@@ -2001,6 +1986,7 @@
                         state.value.farben = parsed.farben || state.value.farben;
                         if (!state.value.farben.tage) state.value.farben.tage = {};
                         if (!state.value.farben.stunden) state.value.farben.stunden = {};
+                        migriereFarben(state.value.farben);
                         if (!Array.isArray(state.value.ferien)) state.value.ferien = [];
                         state.value.schueler = parsed.schueler || state.value.schueler;
                         state.value.bibliothek = parsed.bibliothek || state.value.bibliothek;
@@ -2174,60 +2160,6 @@
                 aktuelleWoche.value = getMontagDerWoche(toISODate(new Date()));
             };
 
-            const istAktuelleWoche = computed(() => {
-                return aktuelleWoche.value === getMontagDerWoche(toISODate(new Date()));
-            });
-
-            // =========================================================================
-            // WOCHEN-KALENDER (NEU): Ausklappbarer Mini-Kalender im Header zur
-            // schnellen Auswahl einer beliebigen Woche.
-            // =========================================================================
-            const kalenderAnsichtMonat = ref(aktuelleWoche.value.slice(0, 8) + "01");
-
-            const oeffneWochenKalender = () => {
-                if (!state.value.ui.showWochenKalender) {
-                    kalenderAnsichtMonat.value = aktuelleWoche.value.slice(0, 8) + "01";
-                }
-                state.value.ui.showWochenKalender = !state.value.ui.showWochenKalender;
-            };
-
-            const kalenderMonatVorOderZurueck = (delta) => {
-                const d = new Date(kalenderAnsichtMonat.value + "T00:00:00");
-                d.setMonth(d.getMonth() + delta);
-                kalenderAnsichtMonat.value = toISODate(d);
-            };
-
-            const kalenderMonatLabel = computed(() => {
-                const d = new Date(kalenderAnsichtMonat.value + "T00:00:00");
-                return `${MONATS_NAMEN[d.getMonth()]} ${d.getFullYear()}`;
-            });
-
-            // 6x7-Raster (42 Tage) für die Monatsansicht, beginnend am Montag
-            // vor (oder am) 1. des angezeigten Monats.
-            const kalenderTage = computed(() => {
-                const monatsStart = new Date(kalenderAnsichtMonat.value + "T00:00:00");
-                const rasterStart = getMontagDerWoche(toISODate(monatsStart));
-                const heuteIso = toISODate(new Date());
-                const tage = [];
-                for (let i = 0; i < 42; i++) {
-                    const datum = addDays(rasterStart, i);
-                    const d = new Date(datum + "T00:00:00");
-                    tage.push({
-                        datum,
-                        tagNr: d.getDate(),
-                        imMonat: d.getMonth() === monatsStart.getMonth(),
-                        heute: datum === heuteIso,
-                        istAktuelleWoche: getMontagDerWoche(datum) === aktuelleWoche.value
-                    });
-                }
-                return tage;
-            });
-
-            const waehleKalenderTag = (datum) => {
-                aktuelleWoche.value = getMontagDerWoche(datum);
-                state.value.ui.showWochenKalender = false;
-            };
-
             const formatTagLangmitDatum = (isoDate) => {
                 if (!isoDate) return "";
                 const d = new Date(isoDate + "T00:00:00");
@@ -2237,18 +2169,30 @@
             };
 
 
+            // Migräne-/Darkmode-freundliche Tag-Farbpalette: jede Farbe hat eine
+            // gedeckte Hell- und eine gedeckte Dunkel-Variante. Gespeichert wird
+            // nur die stabile "id" (nicht der Hex-Wert), damit beim Umschalten
+            // zwischen Hell/Dunkel automatisch die passende Variante angezeigt
+            // wird - siehe resolveFarbe(). Bewusst mehrfarbig (nicht nur grün),
+            // damit die Farben als Unterscheidungsmerkmal im Kalender nutzbar
+            // bleiben; das UI-Farbschema selbst bleibt grün.
             const farbpalette = [
-                { name: "Keine Farbe", wert: "" },
-                { name: "Gelb", wert: "#fef08a" },
-                { name: "Orange", wert: "#fed7aa" },
-                { name: "Rot", wert: "#fecaca" },
-                { name: "Grün", wert: "#bbf7d0" },
-                { name: "Blau", wert: "#bae6fd" },
-                { name: "Lila", wert: "#e9d5ff" },
-                { name: "Grau", wert: "#e5e7eb" }
+                { id: "", name: "Keine Farbe", light: "", dark: "" },
+                { id: "gelb", name: "Gelb", light: "#f0e0a8", dark: "#4a3f1e" },
+                { id: "orange", name: "Orange", light: "#eecfae", dark: "#4a3524" },
+                { id: "rot", name: "Rot", light: "#eac6c1", dark: "#4a2b26" },
+                { id: "gruen", name: "Grün", light: "#c8ddc4", dark: "#2c4430" },
+                { id: "blau", name: "Blau", light: "#c2d7e2", dark: "#243c4a" },
+                { id: "lila", name: "Lila", light: "#d9c9e6", dark: "#3a2e4a" },
+                { id: "grau", name: "Grau", light: "#dcdcd4", dark: "#3a3a34" }
             ];
 
-            const FERIEN_FARBE = "#fbcfe8";
+            const resolveFarbe = (id) => {
+                if (!id) return "";
+                const eintrag = farbpalette.find(f => f.id === id);
+                if (!eintrag) return "";
+                return darkMode.value ? eintrag.dark : eintrag.light;
+            };
 
             const getTagFarbe = (datum) => {
                 return state.value.farben.tage[datum] || "";
@@ -2275,37 +2219,57 @@
                 }
             };
 
+            // Eine Stunde gilt als "eingefärbt", wenn sie entweder eine eigene
+            // Stundenfarbe hat ODER ihr Tag eingefärbt ist (Vererbung).
             const hatStundeFarbe = (datum, stunde) => {
-                return !!getStundeFarbe(datum, stunde);
+                return !!(getStundeFarbe(datum, stunde) || getTagFarbe(datum));
             };
 
+            // Tagesköpfe: Ferien > individuelle Tagesfarbe > "heute" (im grünen
+            // Themenfarbton statt Blau) > neutraler Standard - jeweils mit
+            // passendem, auch im Darkmode gut lesbarem Text.
             const getTagFarbeStyle = (tag) => {
                 if (tag.ferien) {
-                    return { backgroundColor: FERIEN_FARBE };
+                    return { backgroundColor: 'var(--ferien-bg)' };
                 }
-                const farbe = getTagFarbe(tag.datum);
-                if (farbe) {
-                    return { backgroundColor: farbe };
+                const farbeId = getTagFarbe(tag.datum);
+                if (farbeId) {
+                    return { backgroundColor: resolveFarbe(farbeId) };
                 }
-                return tag.heute ? { backgroundColor: '#2563eb' } : { backgroundColor: '#e5e7eb' };
+                return tag.heute ? { backgroundColor: 'var(--unt-solid)' } : { backgroundColor: 'var(--bg-surface-3)' };
             };
 
             const getTagTextClass = (tag, secondary) => {
-                if (tag.ferien) return secondary ? 'text-pink-800' : 'text-pink-900 font-bold';
-                const farbe = getTagFarbe(tag.datum);
-                if (farbe) return secondary ? 'text-gray-600' : 'text-gray-800';
-                if (tag.heute) return secondary ? 'text-blue-100' : 'text-white';
-                return secondary ? 'text-gray-500' : 'text-gray-700';
+                if (tag.ferien) return 'ferien-text' + (secondary ? '' : ' font-bold');
+                const farbeId = getTagFarbe(tag.datum);
+                if (farbeId) {
+                    return darkMode.value
+                        ? (secondary ? 'text-gray-300' : 'text-gray-100')
+                        : (secondary ? 'text-gray-600' : 'text-gray-800');
+                }
+                if (tag.heute) return 'text-white';
+                return secondary ? 't2' : 't1';
             };
 
+            // Stunden erben automatisch die Farbe ihres Tages; eine eigene
+            // Stundenfarbe überschreibt das gezielt nur für diese eine Stunde.
+            // Ein Termin/Kurzeintrag hat visuellen Vorrang vor beiden, damit er
+            // im Stundenplan immer klar erkennbar bleibt.
             const getStundeFarbeStyle = (datum, stunde) => {
                 const ferien = getFerienAm(datum);
                 if (ferien) {
-                    return { backgroundColor: FERIEN_FARBE, opacity: '0.65' };
+                    return { backgroundColor: 'var(--ferien-bg)', opacity: '0.6' };
                 }
-                const farbe = getStundeFarbe(datum, stunde);
-                if (farbe) {
-                    return { backgroundColor: farbe };
+                if (getSlotData(datum, stunde)?.kurzeintrag) {
+                    return {};
+                }
+                const eigeneFarbeId = getStundeFarbe(datum, stunde);
+                if (eigeneFarbeId) {
+                    return { backgroundColor: resolveFarbe(eigeneFarbeId) };
+                }
+                const tagFarbeId = getTagFarbe(datum);
+                if (tagFarbeId) {
+                    return { backgroundColor: resolveFarbe(tagFarbeId) };
                 }
                 return {};
             };
@@ -2394,7 +2358,7 @@
             const neuerSchuelerName = ref("");
             const neuerSchuelerKlasse = ref("");
 
-            const neueNote = ref({ fach: "", typ: "Klassenarbeit", titel: "", note: "", bemerkung: "", datum: new Date().toISOString().slice(0, 10) });
+            const neueNote = ref({ fach: "", typ: "Klassenarbeit", titel: "", note: "", bemerkung: "", datum: toISODate(new Date()) });
             const neuerFoerderplan = ref({ titel: "", inhalt: "" });
 
             const activeDeleteConfirm = ref({ type: null, id: null });
@@ -2406,7 +2370,7 @@
                 const vorlage = state.value.stundenplan.vorlage[vorlageKey];
 
                 return {
-                    fach: vorlage ? vorlage.fach : "",
+                    fach: vorlage ? vorlage.fach : "Freistunde",
                     klasse: vorlage ? vorlage.klasse : "-",
                     kurzeintrag: "",
                     planungLink: "",
@@ -2455,7 +2419,7 @@
                             if (!bestehend) {
                                 state.value.stundenplan.daten[slotKey] = erzeugeLeerenSlot(datum, stundeNo);
                             }
-                            state.value.stundenplan.daten[slotKey].fach = vorlage.fach || "";
+                            state.value.stundenplan.daten[slotKey].fach = vorlage.fach || "Freistunde";
                             state.value.stundenplan.daten[slotKey].klasse = vorlage.klasse || "";
                             aktualisiert++;
                         }
@@ -2480,6 +2444,37 @@
                 }
                 return state.value.stundenplan.daten[key];
             });
+
+            // =========================================================================
+            // FACH-ÜBERSCHREIBUNG PRO EINZELSTUNDE (NEU): activeSlotData.fach/.klasse
+            // sind bereits pro Datum+Stunde gespeichert (nicht in der Vorlage) - die
+            // beiden Felder im Sidebar-Header sind direkt editierbar. Diese Helfer
+            // erkennen nur, ob eine Stunde von der wiederkehrenden Wochenvorlage
+            // abweicht, und setzen sie bei Bedarf gezielt zurück.
+            // =========================================================================
+            const istAbweichendVonVorlage = (datum, stunde) => {
+                if (!datum || !stunde) return false;
+                const slot = state.value.stundenplan.daten[`${datum}_${stunde}`];
+                if (!slot) return false;
+                const d = new Date(datum + "T00:00:00");
+                const wochentagIdx = (d.getDay() + 6) % 7;
+                if (wochentagIdx > 4) return false;
+                const vorlage = state.value.stundenplan.vorlage[`${VORLAGE_KEYS[wochentagIdx]}_${stunde}`];
+                const vorlageFach = vorlage ? (vorlage.fach || "Freistunde") : "Freistunde";
+                const vorlageKlasse = vorlage ? (vorlage.klasse || "") : "";
+                return slot.fach !== vorlageFach || slot.klasse !== vorlageKlasse;
+            };
+
+            const setzeSlotAufVorlageZurueck = () => {
+                const { datum, stunde } = state.value.ui.activeSlot;
+                if (!datum || !stunde) return;
+                const d = new Date(datum + "T00:00:00");
+                const wochentagIdx = (d.getDay() + 6) % 7;
+                if (wochentagIdx > 4) return;
+                const vorlage = state.value.stundenplan.vorlage[`${VORLAGE_KEYS[wochentagIdx]}_${stunde}`];
+                activeSlotData.value.fach = vorlage ? (vorlage.fach || "Freistunde") : "Freistunde";
+                activeSlotData.value.klasse = vorlage ? (vorlage.klasse || "") : "";
+            };
 
             // =========================================================================
             // SAMMELBEWERTUNG (NEU): "Bewertungen"-Modul in der Stunden-Sidebar.
@@ -2626,12 +2621,12 @@
                 const wochentagIdx = (d.getDay() + 6) % 7;
                 const vorlageKey = `${VORLAGE_KEYS[wochentagIdx]}_${stundeNo}`;
                 const vorlage = state.value.stundenplan.vorlage[vorlageKey];
-                return vorlage ? vorlage.fach : "";
+                return vorlage ? vorlage.fach : "Freistunde";
             };
 
             const getSlotKlasse = (datum, stundeNo) => {
                 const fach = getSlotFach(datum, stundeNo);
-                if (fach === "") return "";
+                if (fach === "Freistunde") return "";
                 const key = `${datum}_${stundeNo}`;
                 if (state.value.stundenplan.daten[key]) {
                     return state.value.stundenplan.daten[key].klasse;
@@ -2916,7 +2911,7 @@
                     id: "fp_" + Date.now(),
                     titel: neuerFoerderplan.value.titel.trim(),
                     inhalt: neuerFoerderplan.value.inhalt.trim(),
-                    datum: new Date().toISOString().slice(0, 10)
+                    datum: toISODate(new Date())
                 });
 
                 neuerFoerderplan.value.titel = "";
@@ -2937,7 +2932,7 @@
                         id: "fp_" + Date.now(),
                         titel: standardTitel,
                         inhalt: textContent,
-                        datum: new Date().toISOString().slice(0, 10)
+                        datum: toISODate(new Date())
                     });
                 };
                 reader.readAsText(file);
@@ -3309,6 +3304,7 @@
                             state.value.farben = parsed.farben || state.value.farben;
                             if (!state.value.farben.tage) state.value.farben.tage = {};
                             if (!state.value.farben.stunden) state.value.farben.stunden = {};
+                            migriereFarben(state.value.farben);
                             if (!Array.isArray(state.value.ferien)) state.value.ferien = [];
                             state.value.schueler = parsed.schueler;
                             state.value.bibliothek = parsed.bibliothek || state.value.bibliothek;
@@ -3364,12 +3360,6 @@
                 ferienDieserWoche,
                 wocheVorOderZurueck,
                 springeZuHeute,
-                istAktuelleWoche,
-                oeffneWochenKalender,
-                kalenderMonatVorOderZurueck,
-                kalenderMonatLabel,
-                kalenderTage,
-                waehleKalenderTag,
                 formatTagDatum,
                 formatTagLangmitDatum,
                 formatDatumLang,
@@ -3377,6 +3367,7 @@
                 addDays,
 
                 farbpalette,
+                resolveFarbe,
                 getTagFarbe,
                 setzeTagFarbe,
                 getStundeFarbe,
@@ -3385,6 +3376,8 @@
                 getTagFarbeStyle,
                 getTagTextClass,
                 getStundeFarbeStyle,
+                istAbweichendVonVorlage,
+                setzeSlotAufVorlageZurueck,
 
                 fuegeFerienHinzu,
                 entferneFerien,
