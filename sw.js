@@ -11,7 +11,7 @@
 // weiterhin die alte, zwischengespeicherte Version!
 // =========================================================================
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = `schulplaner-cache-${CACHE_VERSION}`;
 
 // Alle Dateien, die für den Offline-Betrieb nötig sind.
@@ -20,11 +20,11 @@ const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './manifest.json',
-    './js/vue.global.js',
     './css/tailwind.css',
-    './icons/icon-192.png',
-    './icons/icon-512.png',
-    './icons/icon-maskable-192.png',
+    './js/vue.global.js',
+    './icons/icon-192a.png',
+    './icons/icon-512a.png',
+    './icons/icon-maskable-192a.png',
     './icons/icon-maskable-512.png'
 ];
 
