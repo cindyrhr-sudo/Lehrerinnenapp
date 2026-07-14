@@ -22,9 +22,9 @@ const ASSETS_TO_CACHE = [
     './manifest.json',
     './css/tailwind.css',
     './js/vue.global.js',
-    './icons/icon-192a.png',
-    './icons/icon-512a.png',
-    './icons/icon-maskable-192a.png',
+    './icons/icon-192.png',
+    './icons/icon-512.png',
+    './icons/icon-maskable-192.png',
     './icons/icon-maskable-512.png'
 ];
 
