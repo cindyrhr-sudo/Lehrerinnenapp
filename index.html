@@ -408,7 +408,7 @@
                     </div>
                 </div>
 
-                <div class="flex-1 overflow-y-auto p-4 space-y-4 custom-scroll">
+                <div class="flex-1 overflow-y-auto p-4 space-y-3 custom-scroll">
 
                     <button @click="state.ui.showFarbModul = !state.ui.showFarbModul" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition s-card-soft s-hover">
                         <span class="flex items-center gap-1.5">🎨 Farben für diese Stunde</span>
@@ -449,50 +449,44 @@
                         <p class="text-xs text-gray-400 mt-1 dark:text-gray-500 t2">Füge über die Buttons unten gewünschte Module hinzu.</p>
                     </div>
 
-                    <div v-if="state.ui.activeFields.includes('kurzeintrag')" class="rounded-xl p-3 relative acc-ter-soft acc-ter-border">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-xs font-bold acc-ter-text uppercase">📌 Termin / Kurzeintrag</span>
-                            <button @click="removeField('kurzeintrag')" class="text-gray-400 hover:text-red-500 text-xs font-bold dark:text-gray-500 t2">Löschen</button>
+                    <div v-if="state.ui.activeFields.includes('kurzeintrag')" class="rounded-lg p-2 relative acc-ter-soft acc-ter-border">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-sm">📌</span>
+                            <button @click="removeField('kurzeintrag')" class="danger-soft px-1.5 py-0.5 rounded text-[10px] font-bold">🗑️</button>
                         </div>
                         <input type="text" v-model="activeSlotData.kurzeintrag" placeholder="z.B. Klassenarbeit ankündigen..." class="w-full rounded-lg p-2 text-sm focus:outline-none s-input acc-ter-ring">
                     </div>
 
-                    <div v-if="state.ui.activeFields.includes('planung')" class="rounded-xl p-3 relative acc-unt-soft acc-unt-border">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-xs font-bold acc-unt-text uppercase">🔗 Verknüpfte Planung</span>
-                            <button @click="removeField('planung')" class="text-gray-400 hover:text-red-500 text-xs font-bold dark:text-gray-500 t2">Löschen</button>
+                    <div v-if="state.ui.activeFields.includes('planung')" class="rounded-lg p-2 relative acc-unt-soft acc-unt-border">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-sm">🔗</span>
+                            <button @click="removeField('planung')" class="danger-soft px-1.5 py-0.5 rounded text-[10px] font-bold">🗑️</button>
                         </div>
-                        <div v-if="!activeSlotData.planungId" class="text-center py-3 bg-white border border-dashed border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-600 s-card">
+                        <div v-if="!activeSlotData.planungId" class="text-center py-2">
                             <button @click="showLibrarySelection = true" class="text-xs acc-unt-text font-semibold hover:underline">+ Planung wählen</button>
                         </div>
-                        <div v-else class="bg-white border border-gray-200 rounded-lg p-3 space-y-2 dark:bg-gray-800 dark:border-gray-700 s-card s-border">
-                            <div class="flex justify-between items-center">
-                                <div>
-                                    <span class="text-[10px] text-gray-400 block dark:text-gray-500 t2">Aus Ordner: {{ activeSlotData.planungOrdner }}</span>
-                                    <span class="text-sm font-semibold text-gray-800 dark:text-gray-100 t1">{{ activeSlotData.planungLink }}</span>
-                                </div>
-                                <button @click="showLibrarySelection = true" class="text-xs acc-unt-text font-medium hover:underline">Wechseln</button>
-                            </div>
-                            <button @click="oeffnePlanungDirektInBib(activeSlotData.planungId)" class="w-full py-1.5 rounded-lg text-xs font-bold transition acc-unt-soft acc-unt-border">
-                                📚 Planung direkt im Editor öffnen
+                        <div v-else class="flex justify-between items-center gap-2">
+                            <button @click="oeffnePlanungDirektInBib(activeSlotData.planungId)" class="text-sm font-semibold acc-unt-text hover:underline text-left truncate">
+                                {{ activeSlotData.planungLink }}
                             </button>
+                            <button @click="showLibrarySelection = true" class="text-[10px] t3 hover:underline shrink-0">Wechseln</button>
                         </div>
                     </div>
 
-                    <div v-if="state.ui.activeFields.includes('notiz')" class="bg-gray-50 rounded-xl p-3 border border-gray-100 relative dark:bg-gray-800 dark:border-gray-700 s-card-soft s-border-soft">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-xs font-bold text-gray-500 uppercase dark:text-gray-400 t2">✍️ Unterrichts-Notizen (📝)</span>
-                            <button @click="removeField('notiz')" class="text-gray-400 hover:text-red-500 text-xs font-bold dark:text-gray-500 t2">Löschen</button>
+                    <div v-if="state.ui.activeFields.includes('notiz')" class="rounded-lg p-2 relative border s-card-soft s-border-soft">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-sm">✍️</span>
+                            <button @click="removeField('notiz')" class="danger-soft px-1.5 py-0.5 rounded text-[10px] font-bold">🗑️</button>
                         </div>
                         <textarea v-model="activeSlotData.freitext" rows="4" placeholder="Schreib frei auf..." class="w-full rounded-lg p-2 text-sm focus:outline-none resize-none custom-scroll s-input acc-unt-ring"></textarea>
                     </div>
 
-                    <div v-if="state.ui.activeFields.includes('sketch')" class="bg-yellow-50/50 rounded-xl p-3 border border-yellow-100 relative">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-xs font-bold t2 uppercase">🎨 Freihand-Skizze (Pencil)</span>
-                            <div class="flex gap-2">
-                                <button @click="clearCanvas" class="text-xs text-gray-400 hover:text-gray-600 font-bold dark:text-gray-500 t2">Leeren</button>
-                                <button @click="removeField('sketch')" class="text-gray-400 hover:text-red-500 text-xs font-bold dark:text-gray-500 t2">Löschen</button>
+                    <div v-if="state.ui.activeFields.includes('sketch')" class="rounded-lg p-2 relative border s-card-soft s-border-soft">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-sm">🎨</span>
+                            <div class="flex gap-1">
+                                <button @click="clearCanvas" class="s-card-soft t2 px-1.5 py-0.5 rounded text-[10px] font-bold" title="Skizze leeren">🧹</button>
+                                <button @click="removeField('sketch')" class="danger-soft px-1.5 py-0.5 rounded text-[10px] font-bold">🗑️</button>
                             </div>
                         </div>
                         <div class="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-inner dark:bg-gray-800 dark:border-gray-700 s-card s-border">
@@ -509,10 +503,10 @@
                     </div>
 
                     <!-- MODULE 5: Aufgaben für diese Stunde (Termine-Theme) -->
-                    <div v-if="state.ui.activeFields.includes('aufgaben')" class="rounded-xl p-3 relative acc-ter-soft acc-ter-border">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-xs font-bold acc-ter-text uppercase">✅ Aufgaben dieser Stunde</span>
-                            <button @click="removeField('aufgaben')" class="text-gray-400 hover:text-red-500 text-xs font-bold dark:text-gray-500 t2">Löschen</button>
+                    <div v-if="state.ui.activeFields.includes('aufgaben')" class="rounded-lg p-2 relative acc-ter-soft acc-ter-border">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-sm">✅</span>
+                            <button @click="removeField('aufgaben')" class="danger-soft px-1.5 py-0.5 rounded text-[10px] font-bold">🗑️</button>
                         </div>
 
                         <div class="space-y-1.5 mb-2">
@@ -580,14 +574,16 @@
                         </button>
                     </div>
 
-                    <button @click="oeffneSchuelerNotizModal" class="mt-2 w-full py-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition acc-sch-solid">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-                        Schülernotiz erheben
-                    </button>
-                    <button @click="oeffneBewertungenModul" class="w-full py-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition acc-bew-solid">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        Bewertungen erfassen
-                    </button>
+                    <div class="flex gap-2 mt-2">
+                        <button @click="oeffneSchuelerNotizModal" class="flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition acc-sch-solid">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                            <span>Schülernotiz</span>
+                        </button>
+                        <button @click="oeffneBewertungenModul" class="flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition acc-bew-solid">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <span>Bewertung</span>
+                        </button>
+                    </div>
                 </div>
 
             </div>
@@ -1268,7 +1264,7 @@
             <div class="acc-unt-solid px-5 py-4 flex justify-between items-center border-b s-border-soft">
                 <div>
                     <h3 class="text-lg font-bold flex items-center gap-2">
-                        <span>📚 Planungsbibliothek (Ordnerstruktur)</span>
+                        <span>📚 Planungsbibliothek</span>
                     </h3>
                     <p class="text-xs" style="color:rgba(255,255,255,0.8)">Unterrichtsentwürfe erstellen, Links integrieren & Phasen-Tabellen bauen</p>
                 </div>
@@ -1279,7 +1275,7 @@
 
             <div class="flex-1 flex overflow-hidden">
                 
-                <div class="w-1/3 border-r border-gray-200 bg-gray-50 flex flex-col justify-between overflow-y-auto custom-scroll p-4 dark:border-gray-700 dark:bg-gray-800 s-card-soft s-border">
+                <div v-if="!praesentationsModus" class="w-1/3 border-r border-gray-200 bg-gray-50 flex flex-col justify-between overflow-y-auto custom-scroll p-4 dark:border-gray-700 dark:bg-gray-800 s-card-soft s-border">
                     
                     <div class="space-y-4">
                         <div class="flex justify-between items-center">
@@ -1337,7 +1333,7 @@
 
                 </div>
 
-                <div class="w-2/3 p-6 overflow-y-auto custom-scroll bg-stone-50 flex flex-col justify-between dark:bg-gray-900 s-card-soft">
+                <div :class="praesentationsModus ? 'w-full' : 'w-2/3'" class="p-6 overflow-y-auto custom-scroll bg-stone-50 flex flex-col justify-between dark:bg-gray-900 s-card-soft">
                     
                     <div v-if="activeBibPlan" class="space-y-6">
                         
@@ -1348,11 +1344,19 @@
                                 <input type="text" v-else v-model="activeBibPlan.titel" class="text-xl font-bold rounded px-2 py-1 focus:outline-none w-full max-w-md t1 s-input acc-unt-ring">
                             </div>
                             
-                            <button @click="bibEditMode = !bibEditMode" 
-                                    :class="['px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm', bibEditMode ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700', 'dark:hover:bg-gray-600']">
-                                <span v-if="bibEditMode">✔️ Speichern & Fertig</span>
-                                <span v-else>✍️ Plan editieren</span>
-                            </button>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <button @click="praesentationsModus = !praesentationsModus"
+                                        :class="['px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm', praesentationsModus ? 'acc-unt-solid' : 's-card-soft t2 s-hover']"
+                                        :title="praesentationsModus ? 'Ordnerübersicht wieder einblenden' : 'Ordnerliste ausblenden für schnellen Blick im Unterricht'">
+                                    <span v-if="praesentationsModus">📁 Ordner einblenden</span>
+                                    <span v-else>🔎 Fokus</span>
+                                </button>
+                                <button @click="bibEditMode = !bibEditMode" 
+                                        :class="['px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm', bibEditMode ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700', 'dark:hover:bg-gray-600']">
+                                    <span v-if="bibEditMode">✔️ Speichern & Fertig</span>
+                                    <span v-else>✍️ Plan editieren</span>
+                                </button>
+                            </div>
                         </div>
 
                         <div class="space-y-2">
@@ -2350,6 +2354,11 @@
             const activeBibPlan = ref(null);
             const activeBibPlanOrdner = ref("");
             const bibEditMode = ref(false);
+            // Präsentationsmodus (NEU): blendet nur die linke Ordner-/Stundenliste
+            // aus, damit die aktuelle Stunde beim schnellen Blick im Unterricht
+            // mehr Platz bekommt. Öffnet sich automatisch, wenn eine Planung
+            // direkt aus dem Stundenplan heraus aufgerufen wird.
+            const praesentationsModus = ref(false);
             const neuerOrdnerName = ref("");
             const neuerPlanTitelMap = ref({});
             const neuerLinkTitel = ref("");
@@ -2774,6 +2783,7 @@
                 activeBibPlan.value = null;
                 activeBibPlanOrdner.value = "";
                 bibEditMode.value = false;
+                praesentationsModus.value = false;
                 showBibliothekModal.value = true;
             };
 
@@ -2796,6 +2806,7 @@
                         activeBibPlan.value = plan;
                         activeBibPlanOrdner.value = ordner.name;
                         bibEditMode.value = false;
+                        praesentationsModus.value = true;
                         showBibliothekModal.value = true;
                         break;
                     }
@@ -3391,6 +3402,7 @@
                 activeBibPlan,
                 activeBibPlanOrdner,
                 bibEditMode,
+                praesentationsModus,
                 neuerOrdnerName,
                 neuerPlanTitelMap,
                 neuerLinkTitel,
