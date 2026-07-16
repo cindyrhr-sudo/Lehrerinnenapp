@@ -271,6 +271,18 @@
            die im statischen Build sonst ebenfalls unsichtbar wäre). 640px lässt
            auf schmaleren iPads (z.B. iPad mini im Hochformat) mehr Luft. */
         .grid-min-w-plan { min-width: 640px; }
+
+        /* Stundenplan-Zelle: Hauptinhalt (Termin/Notiz/Planung) bricht um, wächst
+           aber NIE über die Zellenhöhe hinaus - stattdessen wird nach 3 Zeilen
+           abgeschnitten. Verhindert, dass eine volle Stunde die Zeilenhöhe im
+           gesamten Stundenplan durcheinanderbringt. */
+        .zellen-inhalt-clamp {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            word-break: break-word;
+        }
     </style>
 </head>
 <body class="overflow-hidden select-none">
@@ -321,7 +333,7 @@
                     </div>
                 </div>
 
-                <div v-for="tag in wochenTage" :key="tag.datum" class="flex flex-col zoom-gap flex-1">
+                <div v-for="tag in wochenTage" :key="tag.datum" class="flex flex-col zoom-gap flex-1 min-w-0">
                     <div class="h-10 flex flex-col justify-center items-center rounded-lg shadow-xs relative overflow-hidden"
                          :class="[tag.heute ? 'ring-today' : '', tag.ferien ? 'ferien-stripes' : '']"
                          :style="getTagFarbeStyle(tag)">
@@ -333,7 +345,7 @@
                          @click="oeffneStunde(tag.datum, stundeNo)"
                          :style="getStundeFarbeStyle(tag.datum, stundeNo)"
                          :class="[
-                            'flex-1 zoom-row zoom-pad rounded-xl border transition-all cursor-pointer flex flex-col justify-between relative overflow-hidden',
+                            'flex-1 zoom-row zoom-pad rounded-xl border transition-all cursor-pointer flex flex-col justify-between relative overflow-hidden min-w-0',
                             isStundeSelected(tag.datum, stundeNo) ? 'cell-selected' : 
                             (getSlotData(tag.datum, stundeNo)?.kurzeintrag ? 'acc-ter-soft acc-ter-border shadow-xs' : (hatStundeFarbe(tag.datum, stundeNo) ? 's-border hover:shadow-xs' : 's-card s-hover hover:shadow-xs')),
                             'dark:border-gray-700'
@@ -346,20 +358,30 @@
                             </span>
                         </div>
 
-                        <div class="flex-1 flex flex-col justify-end py-1 z-10">
-                            <div v-if="getSlotData(tag.datum, stundeNo)?.kurzeintrag" class="acc-ter-soft p-1.5 rounded text-[10px] font-medium leading-snug shadow-xs" style="border-left:4px solid var(--ter-solid)">
-                                📌 {{ getSlotData(tag.datum, stundeNo).kurzeintrag }}
+                        <div class="flex-1 flex flex-col justify-end py-1 z-10 min-h-0 overflow-hidden" v-if="getZellenHauptinhalt(tag.datum, stundeNo)">
+                            <div v-if="getZellenHauptinhalt(tag.datum, stundeNo).typ === 'kurzeintrag'"
+                                 class="acc-ter-soft p-1.5 rounded text-[10px] font-medium leading-snug shadow-xs zellen-inhalt-clamp" style="border-left:4px solid var(--ter-solid)">
+                                📌 {{ getZellenHauptinhalt(tag.datum, stundeNo).text }}
                             </div>
-                            <div v-if="getSlotData(tag.datum, stundeNo)?.planungLink" class="text-[10px] font-semibold truncate mt-1 flex items-center gap-1 acc-unt-text">
-                                🔗 {{ getSlotData(tag.datum, stundeNo).planungLink }}
+                            <div v-else-if="getZellenHauptinhalt(tag.datum, stundeNo).typ === 'freitext'"
+                                 class="text-[10px] leading-snug t2 zellen-inhalt-clamp">
+                                ✍️ {{ getZellenHauptinhalt(tag.datum, stundeNo).text }}
+                            </div>
+                            <div v-else-if="getZellenHauptinhalt(tag.datum, stundeNo).typ === 'sketch'" class="h-8 rounded overflow-hidden s-card-soft">
+                                <svg viewBox="0 0 300 160" preserveAspectRatio="xMidYMid meet" class="w-full h-full">
+                                    <path v-for="(p, idx) in getZellenHauptinhalt(tag.datum, stundeNo).sketches" :key="idx" :d="p"
+                                          fill="none" stroke="#3b82f6" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </div>
+                            <div v-else-if="getZellenHauptinhalt(tag.datum, stundeNo).typ === 'planung'"
+                                 class="text-[10px] font-semibold leading-snug acc-unt-text zellen-inhalt-clamp">
+                                🔗 {{ getZellenHauptinhalt(tag.datum, stundeNo).text }}
                             </div>
                         </div>
 
                         <div class="flex justify-between items-center text-[9px] text-gray-400 z-10 mt-1 dark:text-gray-500 t2">
-                            <div>
-                                <span v-if="getSlotData(tag.datum, stundeNo)?.freitext" class="acc-unt-soft px-1.5 py-0.5 rounded-md text-[10px] font-bold shadow-xs">
-                                    📝 Notiz
-                                </span>
+                            <div class="flex items-center gap-1">
+                                <span v-for="flag in getZellenFaehnchen(tag.datum, stundeNo)" :key="flag" class="text-xs">{{ flag }}</span>
                             </div>
                             <span v-if="getSchuelerNotizenAnzahl(tag.datum, stundeNo) > 0" class="acc-sch-soft px-1.5 py-0.5 rounded-full text-[9px] font-bold shadow-xs">
                                 👤 {{ getSchuelerNotizenAnzahl(tag.datum, stundeNo) }}
@@ -2651,6 +2673,39 @@
                 return state.value.stundenplan.daten[`${datum}_${stundeNo}`] || null;
             };
 
+            // =========================================================================
+            // ZELLEN-DARSTELLUNG (NEU): In der kompakten Stundenplan-Zelle wird nur EIN
+            // "Hauptinhalt" nach fester Rangfolge vollständig gezeigt (bricht um, wächst
+            // aber nie über die Zellenhöhe hinaus - siehe .zellen-inhalt-clamp):
+            // 1. Termin/Kurzeintrag  2. schriftliche Notiz  3. gezeichnete Notiz (Mini-
+            // Vorschau)  4. verknüpfte Planung. Fehlt der ranghöhere Punkt, rückt der
+            // nächste nach. Alles, was vorhanden ist aber nicht den Hauptplatz bekommt
+            // (plus Aufgaben, die nie Hauptinhalt werden), erscheint nur als kleines
+            // Emoji-Fähnchen am unteren Zellenrand.
+            // =========================================================================
+            const getZellenHauptinhalt = (datum, stundeNo) => {
+                const data = getSlotData(datum, stundeNo);
+                if (!data) return null;
+                if (data.kurzeintrag) return { typ: 'kurzeintrag', text: data.kurzeintrag };
+                if (data.freitext) return { typ: 'freitext', text: data.freitext };
+                if (data.sketches && data.sketches.length > 0) return { typ: 'sketch', sketches: data.sketches };
+                if (data.planungLink) return { typ: 'planung', text: data.planungLink };
+                return null;
+            };
+
+            const getZellenFaehnchen = (datum, stundeNo) => {
+                const data = getSlotData(datum, stundeNo);
+                if (!data) return [];
+                const haupt = getZellenHauptinhalt(datum, stundeNo);
+                const flags = [];
+                if (data.kurzeintrag && haupt?.typ !== 'kurzeintrag') flags.push('📌');
+                if (data.freitext && haupt?.typ !== 'freitext') flags.push('✍️');
+                if (data.sketches && data.sketches.length > 0 && haupt?.typ !== 'sketch') flags.push('🎨');
+                if (data.planungLink && haupt?.typ !== 'planung') flags.push('🔗');
+                if (getAufgabenFuerSlot(datum, stundeNo).length > 0) flags.push('✅');
+                return flags;
+            };
+
             const getStundenZeit = (stundeNo) => {
                 const zeiten = { 1: "08:00", 2: "08:45", 3: "09:50", 4: "10:35", 5: "11:40", 6: "12:25" };
                 return zeiten[stundeNo];
@@ -3478,6 +3533,8 @@
                 getSlotFach,
                 getSlotKlasse,
                 getSlotData,
+                getZellenHauptinhalt,
+                getZellenFaehnchen,
                 getStundenZeit,
                 addField,
                 removeField,
