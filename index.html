@@ -283,6 +283,11 @@
             overflow: hidden;
             word-break: break-word;
         }
+
+        /* Formular-Modals (z.B. Dokument verknüpfen): begrenzt scrollbare Höhe -
+           eigene Klasse statt neuem Tailwind-Bracket-Wert (siehe Kommentar oben
+           bei .grid-min-w-plan zum selben Thema). */
+        .max-h-form-scroll { max-height: 70vh; }
     </style>
 </head>
 <body class="overflow-hidden select-none">
@@ -550,6 +555,27 @@
                         </div>
                     </div>
 
+                    <!-- MODULE 6: Verknüpfte Dokumente für diese Stunde -->
+                    <div v-if="state.ui.activeFields.includes('dokumente')" class="rounded-lg p-2 relative border s-card-soft s-border-soft">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-sm">📎</span>
+                            <button @click="removeField('dokumente')" class="danger-soft px-1.5 py-0.5 rounded text-[10px] font-bold">🗑️</button>
+                        </div>
+                        <div class="space-y-1.5 mb-2">
+                            <div v-for="dok in dokumenteFuerSlot(state.ui.activeSlot.datum, state.ui.activeSlot.stunde)" :key="dok.id" class="flex items-center gap-2 bg-white border border-gray-100 rounded-lg p-2 dark:bg-gray-800 dark:border-gray-700 s-card s-border-soft">
+                                <span class="shrink-0">{{ DOKUMENT_TYP_ICONS[dok.typ] }}</span>
+                                <span class="text-xs flex-1 truncate t1 cursor-pointer hover:underline" @click="oeffneDokument(dok)">{{ dok.titel }}</span>
+                                <button @click="triggerDelete('dokument', dok.id)" 
+                                        :class="['px-1.5 py-0.5 rounded text-[10px] font-bold transition-all shrink-0', isConfirming('dokument', dok.id) ? 'confirm-step' : 'danger-soft']">
+                                    <span v-if="isConfirming('dokument', dok.id)">Sicher?</span>
+                                    <span v-else>🗑️</span>
+                                </button>
+                            </div>
+                            <div v-if="dokumenteFuerSlot(state.ui.activeSlot.datum, state.ui.activeSlot.stunde).length === 0" class="text-center text-xs t3 py-2">Noch keine Dokumente für diese Stunde.</div>
+                        </div>
+                        <button @click="oeffneDokumentFormular({ stundenSlot: state.ui.activeSlot.datum + '_' + state.ui.activeSlot.stunde })" class="w-full py-1.5 rounded-lg text-xs font-bold transition acc-unt-soft">+ Dokument verknüpfen</button>
+                    </div>
+
                     <div v-if="getSchuelerNotizenAnzahl(state.ui.activeSlot.datum, state.ui.activeSlot.stunde) > 0" class="pt-2 border-t border-gray-100 dark:border-gray-700 s-border-soft">
                         <button @click="state.ui.showCompactNotesPanel = !state.ui.showCompactNotesPanel" class="w-full rounded-xl p-3 flex justify-between items-center transition acc-sch-soft acc-sch-border">
                             <div class="flex items-center gap-2">
@@ -594,6 +620,9 @@
                         <button v-if="!state.ui.activeFields.includes('aufgaben')" @click="addField('aufgaben')" class="py-2.5 px-3 bg-white hover:bg-gray-100 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 flex items-center justify-center gap-1.5 transition dark:bg-gray-800 dark:hover:bg-gray-700 dark:border-gray-700 dark:text-gray-200 s-card t1 s-border">
                             <span>✅ + Aufgabe</span>
                         </button>
+                        <button v-if="!state.ui.activeFields.includes('dokumente')" @click="addField('dokumente')" class="py-2.5 px-3 bg-white hover:bg-gray-100 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 flex items-center justify-center gap-1.5 transition dark:bg-gray-800 dark:hover:bg-gray-700 dark:border-gray-700 dark:text-gray-200 s-card t1 s-border">
+                            <span>📎 + Dokument</span>
+                        </button>
                     </div>
 
                     <div class="flex gap-2 mt-2">
@@ -629,6 +658,9 @@
             </button>
             <button class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition acc-ter-soft acc-ter-border" @click="showAufgabenWocheModal = true">
                 <span>✅ Aufgaben</span>
+            </button>
+            <button class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 s-panel-soft t1" @click="showDokumenteModal = true; dokumenteSuchbegriff = ''">
+                <span>📎 Dokumente</span>
             </button>
         </div>
     </footer>
@@ -772,6 +804,113 @@
         </div>
     </div>
 
+    <div v-if="showDokumenteModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[85vh] flex flex-col overflow-hidden dark:bg-gray-800 s-card">
+            <div class="acc-unt-solid px-5 py-4 flex justify-between items-center shrink-0">
+                <div>
+                    <h3 class="text-lg font-bold">📎 Dokumenten-Archiv</h3>
+                    <p class="text-xs" style="color:rgba(255,255,255,0.8)">Verknüpfte Dateien - extern gespeichert oder als lokale Kopie</p>
+                </div>
+                <button @click="showDokumenteModal = false" class="modal-close transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div class="p-4 border-b border-gray-100 flex items-center gap-2 shrink-0 dark:border-gray-700 s-border-soft">
+                <input type="text" v-model="dokumenteSuchbegriff" placeholder="🔍 Dokumente durchsuchen..." class="flex-1 min-w-0 rounded-lg p-2 text-xs focus:outline-none s-input acc-unt-ring">
+                <span class="text-[10px] t3 whitespace-nowrap shrink-0">💾 {{ dokumenteGesamtgroesseLokal }} lokal</span>
+                <button @click="oeffneDokumentFormular()" class="px-3 py-2 rounded-lg text-xs font-bold acc-unt-solid whitespace-nowrap shrink-0">+ Dokument</button>
+            </div>
+            <div class="flex-1 overflow-y-auto custom-scroll p-4 space-y-2 bg-stone-50 dark:bg-gray-900 s-card-soft">
+                <div v-for="dok in gefilterteDokumente" :key="dok.id" class="s-card s-border rounded-xl p-3 flex items-center gap-3" style="border-width:1px;border-style:solid">
+                    <span class="text-xl shrink-0">{{ DOKUMENT_TYP_ICONS[dok.typ] }}</span>
+                    <div class="flex-1 min-w-0 cursor-pointer" @click="oeffneDokument(dok)">
+                        <p class="text-sm font-semibold t1 truncate hover:underline">{{ dok.titel }}</p>
+                        <div class="flex flex-wrap items-center gap-1 mt-1">
+                            <span class="text-[9px] px-1.5 py-0.5 rounded-full font-bold" :class="dok.quelle === 'link' ? 'acc-unt-soft' : 's-panel-soft t2'">
+                                {{ dok.quelle === 'link' ? '🔗 Link' : '💾 ' + formatBytes(dok.dateiGroesse) }}
+                            </span>
+                            <span v-if="dok.verknuepftMit.schuelerIds && dok.verknuepftMit.schuelerIds.length" class="text-[9px] acc-sch-soft px-1.5 py-0.5 rounded-full font-bold">
+                                👤 {{ dok.verknuepftMit.schuelerIds.length }}
+                            </span>
+                            <span v-if="dok.verknuepftMit.planungId" class="text-[9px] acc-unt-soft px-1.5 py-0.5 rounded-full font-bold">📚 Planung</span>
+                            <span v-if="dok.verknuepftMit.stundenSlot" class="text-[9px] acc-ter-soft px-1.5 py-0.5 rounded-full font-bold">🗓️ Stunde</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                        <button v-if="dok.quelle === 'datei'" @click="ladeDokumentHerunter(dok)" class="s-card-soft t2 px-2 py-1 rounded text-[10px] font-bold" title="Herunterladen">⬇️</button>
+                        <button @click="triggerDelete('dokument', dok.id)" :class="['px-2 py-1 rounded text-[10px] font-bold transition-all', isConfirming('dokument', dok.id) ? 'confirm-step' : 'danger-soft']">
+                            <span v-if="isConfirming('dokument', dok.id)">Sicher?</span>
+                            <span v-else>🗑️</span>
+                        </button>
+                    </div>
+                </div>
+                <div v-if="gefilterteDokumente.length === 0" class="text-center py-12 text-xs t3">Noch keine Dokumente verknüpft.</div>
+            </div>
+        </div>
+    </div>
+
+    <div v-if="showDokumentFormular" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden dark:bg-gray-800 s-card">
+            <div class="acc-unt-solid px-4 py-3 flex justify-between items-center">
+                <span class="font-bold text-sm">📎 Dokument verknüpfen</span>
+                <button @click="showDokumentFormular = false" class="modal-close text-xs font-medium">Abbrechen</button>
+            </div>
+            <div class="p-4 space-y-3 max-h-form-scroll overflow-y-auto custom-scroll">
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 dark:text-gray-500 t2">Titel</label>
+                    <input type="text" v-model="dokumentFormular.titel" placeholder="z.B. Förderplan Mai 2026" class="w-full rounded-lg p-2 text-sm focus:outline-none s-input acc-unt-ring">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 dark:text-gray-500 t2">Typ</label>
+                    <select v-model="dokumentFormular.typ" class="w-full rounded-lg p-2 text-xs focus:outline-none s-input acc-unt-ring">
+                        <option value="word">📄 Word</option>
+                        <option value="excel">📊 Excel</option>
+                        <option value="pdf">📕 PDF</option>
+                        <option value="sonstiges">📁 Sonstiges</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 dark:text-gray-500 t2">Quelle</label>
+                    <div class="flex gap-1 bg-gray-100 p-1 rounded-lg text-xs dark:bg-gray-700 s-panel-soft">
+                        <button @click="dokumentFormular.quelle = 'link'" :class="['flex-1 py-1.5 rounded-md font-bold transition', dokumentFormular.quelle === 'link' ? 's-card acc-unt-text shadow-xs' : 't2']">🔗 Link</button>
+                        <button @click="dokumentFormular.quelle = 'datei'" :class="['flex-1 py-1.5 rounded-md font-bold transition', dokumentFormular.quelle === 'datei' ? 's-card acc-unt-text shadow-xs' : 't2']">💾 Datei</button>
+                    </div>
+                </div>
+                <div v-if="dokumentFormular.quelle === 'link'">
+                    <input type="text" v-model="dokumentFormular.url" placeholder="https://... (z.B. iCloud-/Drive-Freigabelink)" class="w-full rounded-lg p-2 text-sm focus:outline-none s-input acc-unt-ring">
+                </div>
+                <div v-else class="relative">
+                    <input type="file" @change="dokumentDateiGewaehlt" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                    <div class="w-full py-2.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition acc-unt-soft acc-unt-border text-center">
+                        <span>{{ dokumentFormularDateiInfo || '📂 Datei auswählen' }}</span>
+                    </div>
+                </div>
+
+                <div class="pt-2 border-t border-gray-100 dark:border-gray-700 s-border-soft">
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 dark:text-gray-500 t2">Verknüpfen mit Schüler:innen (optional)</label>
+                    <div class="max-h-28 overflow-y-auto custom-scroll space-y-1 s-card-soft s-border-soft rounded-lg p-1.5" style="border-width:1px;border-style:solid">
+                        <label v-for="s in state.schueler.schuelerListe" :key="s.id" class="flex items-center gap-2 px-1.5 py-1 rounded text-xs cursor-pointer s-hover">
+                            <input type="checkbox" :checked="dokumentFormular.schuelerIds.includes(s.id)" @change="toggleSchuelerImFormular(s.id)">
+                            <span class="t1">{{ s.name }} ({{ s.klasse }})</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 dark:text-gray-500 t2">Verknüpfen mit Planung (optional)</label>
+                    <select v-model="dokumentFormular.planungId" class="w-full rounded-lg p-2 text-xs focus:outline-none s-input acc-unt-ring">
+                        <option value="">– Keine –</option>
+                        <option v-for="p in alleFlachePlanungen" :key="p.id" :value="p.id">{{ p.titel }}</option>
+                    </select>
+                </div>
+
+                <p v-if="dokumentFormular.stundenSlot" class="text-[10px] t3">🗓️ Wird zusätzlich mit der aktuell geöffneten Stunde verknüpft.</p>
+                <p v-if="dokumentSpeichernFehler" class="text-[11px] font-semibold danger-text">{{ dokumentSpeichernFehler }}</p>
+
+                <button @click="speichereDokument" class="w-full py-2.5 rounded-xl font-bold text-xs transition mt-2 acc-unt-solid">Speichern</button>
+            </div>
+        </div>
+    </div>
 
     <div v-if="showBackupModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200 dark:bg-gray-800 s-card">
@@ -788,6 +927,9 @@
             <div class="p-6 space-y-6">
                 <div class="p-3 rounded-xl text-xs leading-relaxed warn-soft">
                     <strong>⚠️ Wichtiger iPad-Hinweis:</strong> Safari bereinigt ungenutzte Webseitendaten nach einigen Tagen Inaktivität selbsttätig. Sorge mit Backups vor oder installiere diese App via Capacitor, um dieses Problem für immer loszuwerden!
+                </div>
+                <div class="p-3 rounded-xl text-xs leading-relaxed warn-soft">
+                    <strong>📎 Hinweis zum Dokumenten-Archiv:</strong> Dieses Backup sichert nur die Verknüpfungen (Titel, Links, Zuordnungen) - lokal hochgeladene Dateien selbst liegen separat und sind hier nicht enthalten. Lade wichtige lokale Dokumente im Dokumenten-Archiv einzeln über "⬇️" herunter, um sie zusätzlich zu sichern.
                 </div>
 
                 <div class="space-y-2">
@@ -871,7 +1013,7 @@
                             </div>
                         </div>
 
-                        <div class="bg-gray-100 p-1 rounded-xl flex gap-1 text-xs dark:bg-gray-700 s-panel-soft">
+                        <div class="bg-gray-100 p-1 rounded-xl flex flex-wrap gap-1 text-xs dark:bg-gray-700 s-panel-soft">
                             <button @click="state.ui.schuelerTab = 'personal'" 
                                     :class="['flex-1 py-2 text-center rounded-lg font-bold transition', state.ui.schuelerTab === 'personal' ? 's-card acc-sch-text shadow-xs' : 't2 s-hover']">
                                 📋 Personalbogen
@@ -895,6 +1037,10 @@
                             <button @click="state.ui.schuelerTab = 'gespraeche'" 
                                     :class="['flex-1 py-2 text-center rounded-lg font-bold transition', state.ui.schuelerTab === 'gespraeche' ? 's-card acc-sch-text shadow-xs' : 't2 s-hover']">
                                 💬 Gespräche
+                            </button>
+                            <button @click="state.ui.schuelerTab = 'dokumente'" 
+                                    :class="['flex-1 py-2 text-center rounded-lg font-bold transition', state.ui.schuelerTab === 'dokumente' ? 's-card acc-sch-text shadow-xs' : 't2 s-hover']">
+                                📎 Dokumente
                             </button>
                         </div>
                     </div>
@@ -1248,6 +1394,26 @@
 
                         </div>
 
+                        <!-- TAB G: DOKUMENTE (verknüpfte Word-/Excel-/PDF-Dateien für diesen Schüler) -->
+                        <div v-if="state.ui.schuelerTab === 'dokumente'" class="space-y-3 animate-in fade-in duration-100">
+                            <button @click="oeffneDokumentFormular({ schuelerIds: [selectedSchuelerId] })" class="w-full py-2.5 rounded-xl text-xs font-bold transition acc-sch-solid">+ Dokument verknüpfen</button>
+                            <div class="space-y-2">
+                                <div v-for="dok in dokumenteFuerSchueler(selectedSchuelerId)" :key="dok.id" class="bg-white border border-gray-200 rounded-xl p-3 shadow-xs flex items-center gap-3 dark:bg-gray-800 dark:border-gray-700 s-card s-border">
+                                    <span class="text-xl shrink-0">{{ DOKUMENT_TYP_ICONS[dok.typ] }}</span>
+                                    <div class="flex-1 min-w-0 cursor-pointer" @click="oeffneDokument(dok)">
+                                        <p class="text-sm font-semibold t1 truncate hover:underline">{{ dok.titel }}</p>
+                                        <span class="text-[9px] t3">{{ dok.quelle === 'link' ? '🔗 Link' : '💾 ' + formatBytes(dok.dateiGroesse) }}</span>
+                                    </div>
+                                    <button v-if="dok.quelle === 'datei'" @click="ladeDokumentHerunter(dok)" class="s-card-soft t2 px-2 py-1 rounded text-[10px] font-bold shrink-0" title="Herunterladen">⬇️</button>
+                                    <button @click="triggerDelete('dokument', dok.id)" :class="['px-2 py-1 rounded text-[10px] font-bold transition-all shrink-0', isConfirming('dokument', dok.id) ? 'confirm-step' : 'danger-soft']">
+                                        <span v-if="isConfirming('dokument', dok.id)">Sicher?</span>
+                                        <span v-else>🗑️</span>
+                                    </button>
+                                </div>
+                                <div v-if="dokumenteFuerSchueler(selectedSchuelerId).length === 0" class="text-center py-8 text-gray-400 text-xs bg-white rounded-xl border border-dashed border-gray-200 dark:text-gray-500 dark:bg-gray-800 dark:border-gray-700 s-card-soft t2">Noch keine Dokumente verknüpft.</div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
                 
@@ -1471,6 +1637,28 @@
                                     </tbody>
                                 </table>
                                 <button @click="fuegeTabellenZeileHinzu" class="w-full py-2 rounded-xl text-xs font-bold transition acc-unt-soft">+ Neue Unterrichtsphase hinzufügen</button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block dark:text-gray-500 t2">📎 Verknüpfte Dokumente</span>
+                                <button @click="oeffneDokumentFormular({ planungId: activeBibPlan.id })" class="text-xs acc-unt-text font-semibold hover:underline">+ Dokument</button>
+                            </div>
+                            <div class="space-y-2">
+                                <div v-for="dok in dokumenteFuerPlanung(activeBibPlan.id)" :key="dok.id" class="bg-white border border-gray-200 rounded-xl p-3 shadow-xs flex items-center gap-3 dark:bg-gray-800 dark:border-gray-700 s-card s-border">
+                                    <span class="text-xl shrink-0">{{ DOKUMENT_TYP_ICONS[dok.typ] }}</span>
+                                    <div class="flex-1 min-w-0 cursor-pointer" @click="oeffneDokument(dok)">
+                                        <p class="text-sm font-semibold t1 truncate hover:underline">{{ dok.titel }}</p>
+                                        <span class="text-[9px] t3">{{ dok.quelle === 'link' ? '🔗 Link' : '💾 ' + formatBytes(dok.dateiGroesse) }}</span>
+                                    </div>
+                                    <button v-if="dok.quelle === 'datei'" @click="ladeDokumentHerunter(dok)" class="s-card-soft t2 px-2 py-1 rounded text-[10px] font-bold shrink-0" title="Herunterladen">⬇️</button>
+                                    <button @click="triggerDelete('dokument', dok.id)" :class="['px-2 py-1 rounded text-[10px] font-bold transition-all shrink-0', isConfirming('dokument', dok.id) ? 'confirm-step' : 'danger-soft']">
+                                        <span v-if="isConfirming('dokument', dok.id)">Sicher?</span>
+                                        <span v-else>🗑️</span>
+                                    </button>
+                                </div>
+                                <div v-if="dokumenteFuerPlanung(activeBibPlan.id).length === 0" class="text-xs t3">Noch keine Dokumente verknüpft.</div>
                             </div>
                         </div>
 
@@ -1832,6 +2020,66 @@
         return 1 + Math.round(((d - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
     }
 
+    // =========================================================================
+    // DOKUMENTEN-ARCHIV (NEU): Verknüpfte Word-/Excel-/PDF-Dateien landen NICHT
+    // im normalen App-State/localStorage (würde jeden Save der ganzen App
+    // aufblähen), sondern werden separat in IndexedDB abgelegt. Im App-State
+    // liegen nur die Metadaten (Titel, Verknüpfung, Dateiname, Größe) - siehe
+    // state.dokumente. Bei "Quelle: Link" wird gar keine Datei gespeichert,
+    // nur die URL.
+    // =========================================================================
+    const IDB_NAME = "schulplaner_dokumente";
+    const IDB_STORE = "dateien";
+
+    function idbOpen() {
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open(IDB_NAME, 1);
+            req.onupgradeneeded = () => {
+                if (!req.result.objectStoreNames.contains(IDB_STORE)) {
+                    req.result.createObjectStore(IDB_STORE, { keyPath: "id" });
+                }
+            };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    async function idbSpeichereDatei(id, blob) {
+        const db = await idbOpen();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(IDB_STORE, "readwrite");
+            tx.objectStore(IDB_STORE).put({ id, blob });
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    }
+
+    async function idbLadeDatei(id) {
+        const db = await idbOpen();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(IDB_STORE, "readonly");
+            const req = tx.objectStore(IDB_STORE).get(id);
+            req.onsuccess = () => resolve(req.result ? req.result.blob : null);
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    async function idbLoescheDatei(id) {
+        const db = await idbOpen();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(IDB_STORE, "readwrite");
+            tx.objectStore(IDB_STORE).delete(id);
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    }
+
+    function formatBytes(bytes) {
+        if (!bytes) return "0 KB";
+        if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
     createApp({
         setup() {
             const state = ref({
@@ -1953,6 +2201,10 @@
                 // SCHUBLADE 6: Aufgaben (NEU) - Termine/Aufgaben-Theme, klassen-/stundenbezogen
                 aufgaben: [],
 
+                // SCHUBLADE 7: Dokumenten-Archiv (NEU) - nur Metadaten, Dateien selbst
+                // liegen in IndexedDB (Quelle 'datei') oder extern (Quelle 'link')
+                dokumente: [],
+
                 ui: {
                     showSidebar: false,
                     showCompactNotesPanel: false,
@@ -2018,6 +2270,11 @@
                         state.value.bibliothek = parsed.bibliothek || state.value.bibliothek;
                         state.value.archiv = parsed.archiv || state.value.archiv;
                         state.value.aufgaben = Array.isArray(parsed.aufgaben) ? parsed.aufgaben : [];
+                        state.value.dokumente = Array.isArray(parsed.dokumente) ? parsed.dokumente : [];
+                        state.value.dokumente.forEach(d => {
+                            if (!d.verknuepftMit) d.verknuepftMit = { schuelerIds: [], planungId: null, stundenSlot: null };
+                            if (!d.verknuepftMit.schuelerIds) d.verknuepftMit.schuelerIds = [];
+                        });
 
                         state.value.schueler.schuelerListe.forEach(s => {
                             if (!s.geburtsdatum) s.geburtsdatum = "";
@@ -2060,7 +2317,8 @@
                     schueler: state.value.schueler,
                     bibliothek: state.value.bibliothek,
                     archiv: state.value.archiv,
-                    aufgaben: state.value.aufgaben
+                    aufgaben: state.value.aufgaben,
+                    dokumente: state.value.dokumente
                 });
 
                 if (isCapacitor) {
@@ -2635,6 +2893,7 @@
                 if (data.freitext) fields.push('notiz');
                 if (data.sketches && data.sketches.length > 0) fields.push('sketch');
                 if (getAufgabenFuerSlot(datum, stundeNo).length > 0) fields.push('aufgaben');
+                if (dokumenteFuerSlot(datum, stundeNo).length > 0) fields.push('dokumente');
                 
                 state.value.ui.activeFields = fields;
             };
@@ -3183,6 +3442,188 @@
                 }));
             });
 
+            // =========================================================================
+            // DOKUMENTEN-ARCHIV (NEU): externe Word-/Excel-/PDF-Dateien mit Schüler:in,
+            // Planung und/oder Stunde verknüpfen. Zwei Quellen pro Dokument möglich:
+            // 'link' (nur URL, z.B. iCloud-/Drive-Freigabelink, kein lokaler Speicher-
+            // verbrauch) oder 'datei' (Kopie in IndexedDB, offline abrufbar). Nur die
+            // Metadaten liegen im normalen App-State/localStorage - siehe state.dokumente.
+            // =========================================================================
+            const showDokumenteModal = ref(false);
+            const dokumenteSuchbegriff = ref("");
+            const showDokumentFormular = ref(false);
+            const dokumentFormular = ref({ titel: "", typ: "sonstiges", quelle: "link", url: "", datei: null, schuelerIds: [], planungId: "", stundenSlot: "" });
+            const dokumentFormularDateiInfo = ref("");
+            const dokumentSpeichernFehler = ref("");
+
+            const DOKUMENT_TYP_ICONS = { word: "📄", excel: "📊", pdf: "📕", sonstiges: "📁" };
+
+            const dokumenteGesamtgroesseLokal = computed(() => {
+                const bytes = state.value.dokumente
+                    .filter(d => d.quelle === 'datei')
+                    .reduce((sum, d) => sum + (d.dateiGroesse || 0), 0);
+                return formatBytes(bytes);
+            });
+
+            // Ordnerstruktur der Bibliothek für die Planungs-Auswahl im Formular flachklopfen
+            const alleFlachePlanungen = computed(() => {
+                const list = [];
+                state.value.bibliothek.ordner.forEach(ordner => {
+                    (ordner.plaene || []).forEach(plan => {
+                        list.push({ id: plan.id, titel: `${ordner.name} / ${plan.titel}` });
+                    });
+                });
+                return list;
+            });
+
+            const gefilterteDokumente = computed(() => {
+                let list = state.value.dokumente;
+                if (dokumenteSuchbegriff.value.trim() !== "") {
+                    const q = dokumenteSuchbegriff.value.toLowerCase();
+                    list = list.filter(d => d.titel.toLowerCase().includes(q));
+                }
+                return [...list].sort((a, b) => (b.erstelltAm || "").localeCompare(a.erstelltAm || ""));
+            });
+
+            const dokumenteFuerSchueler = (schuelerId) => {
+                return state.value.dokumente.filter(d => (d.verknuepftMit.schuelerIds || []).includes(schuelerId));
+            };
+
+            const dokumenteFuerPlanung = (planungId) => {
+                return state.value.dokumente.filter(d => d.verknuepftMit.planungId === planungId);
+            };
+
+            const dokumenteFuerSlot = (datum, stunde) => {
+                const key = `${datum}_${stunde}`;
+                return state.value.dokumente.filter(d => d.verknuepftMit.stundenSlot === key);
+            };
+
+            // vorbelegung z.B. { schuelerIds: [...] } oder { planungId } oder { stundenSlot }
+            // - je nachdem, aus welchem Kontext das Formular geöffnet wird
+            const oeffneDokumentFormular = (vorbelegung = {}) => {
+                dokumentFormular.value = {
+                    titel: "", typ: "sonstiges", quelle: "link", url: "", datei: null,
+                    schuelerIds: vorbelegung.schuelerIds ? [...vorbelegung.schuelerIds] : [],
+                    planungId: vorbelegung.planungId || "",
+                    stundenSlot: vorbelegung.stundenSlot || ""
+                };
+                dokumentFormularDateiInfo.value = "";
+                dokumentSpeichernFehler.value = "";
+                showDokumentFormular.value = true;
+            };
+
+            const dokumentDateiGewaehlt = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                dokumentFormular.value.datei = file;
+                dokumentFormularDateiInfo.value = `📄 ${file.name} (${formatBytes(file.size)})`;
+                if (!dokumentFormular.value.titel.trim()) {
+                    dokumentFormular.value.titel = file.name.replace(/\.[^/.]+$/, "");
+                }
+            };
+
+            const toggleSchuelerImFormular = (schuelerId) => {
+                const idx = dokumentFormular.value.schuelerIds.indexOf(schuelerId);
+                if (idx >= 0) dokumentFormular.value.schuelerIds.splice(idx, 1);
+                else dokumentFormular.value.schuelerIds.push(schuelerId);
+            };
+
+            const speichereDokument = async () => {
+                const f = dokumentFormular.value;
+                dokumentSpeichernFehler.value = "";
+                if (!f.titel.trim()) {
+                    dokumentSpeichernFehler.value = "⚠️ Bitte einen Titel eintragen.";
+                    return;
+                }
+                if (f.quelle === 'link' && !f.url.trim()) {
+                    dokumentSpeichernFehler.value = "⚠️ Bitte einen Link eintragen.";
+                    return;
+                }
+                if (f.quelle === 'datei' && !f.datei) {
+                    dokumentSpeichernFehler.value = "⚠️ Bitte eine Datei auswählen.";
+                    return;
+                }
+
+                const id = "dok_" + Date.now();
+                let url = "";
+                let dateiname = "";
+                let dateiGroesse = 0;
+
+                if (f.quelle === 'link') {
+                    url = f.url.trim();
+                    if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+                } else {
+                    try {
+                        await idbSpeichereDatei(id, f.datei);
+                    } catch (e) {
+                        console.error(e);
+                        dokumentSpeichernFehler.value = "❌ Datei konnte nicht gespeichert werden.";
+                        return;
+                    }
+                    dateiname = f.datei.name;
+                    dateiGroesse = f.datei.size;
+                }
+
+                state.value.dokumente.push({
+                    id,
+                    titel: f.titel.trim(),
+                    typ: f.typ,
+                    quelle: f.quelle,
+                    url,
+                    dateiname,
+                    dateiGroesse,
+                    verknuepftMit: {
+                        schuelerIds: [...f.schuelerIds],
+                        planungId: f.planungId || null,
+                        stundenSlot: f.stundenSlot || null
+                    },
+                    erstelltAm: toISODate(new Date())
+                });
+
+                showDokumentFormular.value = false;
+            };
+
+            const oeffneDokument = async (dok) => {
+                if (dok.quelle === 'link') {
+                    window.open(dok.url, '_blank');
+                    return;
+                }
+                try {
+                    const blob = await idbLadeDatei(dok.id);
+                    if (!blob) {
+                        alert("Diese Datei wurde im Gerätespeicher nicht gefunden - eventuell wurde der Browser-Speicher zwischenzeitlich geleert.");
+                        return;
+                    }
+                    const url = URL.createObjectURL(blob);
+                    window.open(url, '_blank');
+                    setTimeout(() => URL.revokeObjectURL(url), 60000);
+                } catch (e) {
+                    console.error(e);
+                }
+            };
+
+            const ladeDokumentHerunter = async (dok) => {
+                if (dok.quelle !== 'datei') return;
+                const blob = await idbLadeDatei(dok.id);
+                if (!blob) return;
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = dok.dateiname || dok.titel;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            };
+
+            const loescheDokumentEndgueltig = async (id) => {
+                const dok = state.value.dokumente.find(d => d.id === id);
+                state.value.dokumente = state.value.dokumente.filter(d => d.id !== id);
+                if (dok && dok.quelle === 'datei') {
+                    try { await idbLoescheDatei(id); } catch (e) { console.error(e); }
+                }
+            };
+
             const isConfirming = (type, id) => {
                 return activeDeleteConfirm.value.type === type && activeDeleteConfirm.value.id === id;
             };
@@ -3252,6 +3693,9 @@
                 }
                 else if (type === 'aufgabe') {
                     state.value.aufgaben = state.value.aufgaben.filter(a => a.id !== id);
+                }
+                else if (type === 'dokument') {
+                    loescheDokumentEndgueltig(id);
                 }
             };
 
@@ -3376,6 +3820,11 @@
                             state.value.bibliothek = parsed.bibliothek || state.value.bibliothek;
                             state.value.archiv = parsed.archiv || state.value.archiv;
                             state.value.aufgaben = Array.isArray(parsed.aufgaben) ? parsed.aufgaben : [];
+                            state.value.dokumente = Array.isArray(parsed.dokumente) ? parsed.dokumente : [];
+                            state.value.dokumente.forEach(d => {
+                                if (!d.verknuepftMit) d.verknuepftMit = { schuelerIds: [], planungId: null, stundenSlot: null };
+                                if (!d.verknuepftMit.schuelerIds) d.verknuepftMit.schuelerIds = [];
+                            });
                             
                             await saveData(); 
                             backupMessage.value = "🎉 Daten erfolgreich eingespielt! Die App lädt neu...";
@@ -3522,6 +3971,27 @@
                 fuegeAufgabeHinzu,
                 toggleAufgabeErledigt,
                 aufgabenDieserWoche,
+
+                showDokumenteModal,
+                dokumenteSuchbegriff,
+                showDokumentFormular,
+                dokumentFormular,
+                dokumentFormularDateiInfo,
+                dokumentSpeichernFehler,
+                DOKUMENT_TYP_ICONS,
+                formatBytes,
+                dokumenteGesamtgroesseLokal,
+                alleFlachePlanungen,
+                gefilterteDokumente,
+                dokumenteFuerSchueler,
+                dokumenteFuerPlanung,
+                dokumenteFuerSlot,
+                oeffneDokumentFormular,
+                dokumentDateiGewaehlt,
+                toggleSchuelerImFormular,
+                speichereDokument,
+                oeffneDokument,
+                ladeDokumentHerunter,
 
                 isConfirming,
                 triggerDelete,
