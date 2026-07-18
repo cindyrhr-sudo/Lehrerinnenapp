@@ -500,9 +500,12 @@
                         </div>
                     </div>
 
-                    <div v-if="state.ui.activeFields.includes('notiz')" class="rounded-lg p-2 relative border s-card-soft s-border-soft">
+                    <div v-if="state.ui.activeFields.includes('notiz')" :class="['rounded-lg p-2 relative border s-card-soft', activeSlotData.notizGepinnt ? 'acc-ter-border' : 's-border-soft']" :style="activeSlotData.notizGepinnt ? 'border-width:2px' : ''">
                         <div class="flex justify-between items-center mb-1">
-                            <span class="text-sm">✍️</span>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-sm">✍️</span>
+                                <button @click="toggleNotizPin(state.ui.activeSlot.datum + '_' + state.ui.activeSlot.stunde)" :class="activeSlotData.notizGepinnt ? 'acc-ter-text' : 't3'" :title="activeSlotData.notizGepinnt ? 'Nicht mehr anpinnen' : 'Anpinnen (vor Kalender leeren geschützt)'">📌</button>
+                            </div>
                             <button @click="removeField('notiz')" class="danger-soft px-1.5 py-0.5 rounded text-[10px] font-bold">🗑️</button>
                         </div>
                         <textarea v-model="activeSlotData.freitext" rows="4" placeholder="Schreib frei auf..." class="w-full rounded-lg p-2 text-sm focus:outline-none resize-none custom-scroll s-input acc-unt-ring"></textarea>
@@ -1514,8 +1517,8 @@
                     <div class="pt-4 border-t border-gray-200 mt-4 bg-gray-50 dark:border-gray-700 dark:bg-gray-800 s-card-soft s-border">
                         <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 dark:text-gray-500 t2">Neuer Themenordner</label>
                         <div class="flex gap-2">
-                            <input type="text" v-model="neuerOrdnerName" placeholder="z.B. Geometrie 4b..." class="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none bg-white dark:border-gray-700 dark:bg-gray-800 s-card s-border">
-                            <button @click="erstelleOrdner" class="px-3 py-1.5 rounded-lg text-xs font-bold acc-unt-solid">+</button>
+                            <input type="text" v-model="neuerOrdnerNameBib" placeholder="z.B. Geometrie 4b..." class="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none bg-white dark:border-gray-700 dark:bg-gray-800 s-card s-border">
+                            <button @click="erstelleOrdnerBib" class="px-3 py-1.5 rounded-lg text-xs font-bold acc-unt-solid">+</button>
                         </div>
                     </div>
 
@@ -1720,9 +1723,14 @@
                         <h4 class="text-sm font-bold text-gray-800 dark:text-gray-100 t1">Ordner-Inhalt: {{ selectedThemenOrdner }}</h4>
                     </div>
                     <div class="space-y-4">
-                        <div v-for="notiz in getNotesInFolder(selectedThemenOrdner)" :key="notiz.key" class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs relative dark:bg-gray-800 dark:border-gray-700 s-card s-border">
+                        <div v-for="notiz in getNotesInFolder(selectedThemenOrdner)" :key="notiz.key" 
+                             :class="['bg-white border rounded-2xl p-4 shadow-xs relative dark:bg-gray-800 s-card', notiz.gepinnt ? 'acc-ter-border' : 'border-gray-200 dark:border-gray-700 s-border']"
+                             :style="notiz.gepinnt ? 'border-width:2px' : ''">
                             <div class="flex justify-between items-center border-b border-gray-100 pb-2 mb-2 text-xs dark:border-gray-700 s-border-soft">
-                                <span class="acc-unt-text font-semibold">📅 {{ notiz.datum }} - {{ notiz.stundenName }}</span>
+                                <span class="acc-unt-text font-semibold flex items-center gap-1.5">
+                                    <button @click="toggleNotizPin(notiz.key)" :class="notiz.gepinnt ? 'acc-ter-text' : 't3'" :title="notiz.gepinnt ? 'Nicht mehr anpinnen' : 'Anpinnen (vor Kalender leeren geschützt)'">📌</button>
+                                    📅 {{ notiz.datum }} - {{ notiz.stundenName }}
+                                </span>
                                 <span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-[10px] font-bold dark:bg-gray-700 dark:text-gray-300 s-panel-soft t2">{{ notiz.klasse }}</span>
                             </div>
                             <p class="text-sm text-gray-700 whitespace-pre-wrap pr-16 dark:text-gray-200 t1">{{ notiz.text }}</p>
@@ -1759,7 +1767,7 @@
                 </button>
             </div>
 
-            <div class="bg-gray-100 px-4 pt-3 flex gap-1 text-xs shrink-0 dark:bg-gray-700 s-panel-soft">
+            <div class="bg-gray-100 px-4 pt-3 flex flex-wrap gap-1 text-xs shrink-0 dark:bg-gray-700 s-panel-soft">
                 <button @click="settingsTab = 'schuljahr'" :class="['px-4 py-2.5 rounded-t-xl font-bold transition', settingsTab === 'schuljahr' ? 's-card acc-unt-text shadow-xs' : 't2 s-hover']">
                     📅 Schuljahr & Ferien
                 </button>
@@ -1771,6 +1779,9 @@
                 </button>
                 <button @click="settingsTab = 'darstellung'" :class="['px-4 py-2.5 rounded-t-xl font-bold transition', settingsTab === 'darstellung' ? 's-card acc-unt-text shadow-xs' : 't2 s-hover']">
                     🌓 Darstellung
+                </button>
+                <button @click="settingsTab = 'aufraeumen'" :class="['px-4 py-2.5 rounded-t-xl font-bold transition', settingsTab === 'aufraeumen' ? 's-card acc-unt-text shadow-xs' : 't2 s-hover']">
+                    🧹 Aufräumen
                 </button>
             </div>
 
@@ -1944,6 +1955,33 @@
                                 <span>🌙 Dunkel</span>
                             </button>
                         </div>
+                    </div>
+                </div>
+
+                <div v-if="settingsTab === 'aufraeumen'" class="space-y-4 animate-in fade-in duration-100">
+                    <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 dark:bg-gray-800 dark:border-gray-700 s-card s-border">
+                        <h5 class="text-xs font-bold acc-ter-text uppercase tracking-wider">🧹 Kalender leeren</h5>
+                        <p class="text-[11px] text-gray-500 leading-snug dark:text-gray-400 t2">
+                            Löscht Termine, Notizen, Skizzen, Aufgaben und Tagesfarben aus dem Stundenplan
+                            vor einem gewählten Datum - z.B. einmal am Ende des Schuljahres. <strong>Ausgenommen bleiben:</strong>
+                            Schülerkartei, Planungsbibliothek und mit 📌 angepinnte Notizen. Fach/Klasse-Abweichungen und
+                            verknüpfte Planungen der betroffenen Stunden werden dabei ebenfalls zurückgesetzt.
+                        </p>
+                        <div>
+                            <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1 dark:text-gray-400 t3">Alles vor diesem Datum löschen</label>
+                            <input type="date" v-model="kalenderLeerenDatum" class="w-full rounded-lg p-2 text-xs focus:outline-none s-input acc-ter-ring" @change="kalenderLeerenBestaetigt = false">
+                        </div>
+                        <p class="text-[11px] t2">
+                            Betrifft aktuell <strong>{{ kalenderLeerenBetroffeneAnzahl }}</strong> Stunden-/Aufgaben-Einträge.
+                        </p>
+                        <button @click="kalenderLeeren"
+                                :disabled="kalenderLeerenBetroffeneAnzahl === 0"
+                                :class="['w-full py-2.5 rounded-xl text-xs font-bold transition', kalenderLeerenBetroffeneAnzahl === 0 ? 's-card-soft t3 cursor-not-allowed' : (kalenderLeerenBestaetigt ? 'confirm-step' : 'danger-soft')]">
+                            <span v-if="kalenderLeerenBetroffeneAnzahl === 0">Nichts zu löschen vor diesem Datum</span>
+                            <span v-else-if="kalenderLeerenBestaetigt">⚠️ Wirklich unwiderruflich löschen? Nochmal tippen zum Bestätigen</span>
+                            <span v-else>🧹 Kalender vor diesem Datum leeren</span>
+                        </button>
+                        <p v-if="kalenderLeerenMeldung" class="text-[11px] font-semibold text-center acc-unt-text">{{ kalenderLeerenMeldung }}</p>
                     </div>
                 </div>
 
@@ -2298,6 +2336,7 @@
                                 }).filter(d => d !== "");
                             }
                             if (!slot.farbe) slot.farbe = "";
+                            if (typeof slot.notizGepinnt !== 'boolean') slot.notizGepinnt = false;
                         }
 
                     } catch (e) {
@@ -2666,6 +2705,7 @@
                     planungId: "",
                     planungOrdner: "",
                     freitext: "",
+                    notizGepinnt: false,
                     themenOrdner: "Allgemein",
                     sketches: [],
                     farbe: ""
@@ -2719,6 +2759,69 @@
 
                 vorlageUebernahmeMessage.value = `✔️ ${aktualisiert} Stunden aktualisiert.`;
                 setTimeout(() => { vorlageUebernahmeMessage.value = ""; }, 5000);
+            };
+
+            // =========================================================================
+            // KALENDER LEEREN (NEU): löscht Stundenplan-Einträge (Termine, Notizen,
+            // Skizzen, Fach/Klasse-Abweichungen, Planungs-Verknüpfungen), Aufgaben und
+            // Tagesfarben vor einem gewählten Stichtag. Angepinnte Notizen (siehe
+            // toggleNotizPin) werden komplett übersprungen. Schülerkartei und
+            // Planungsbibliothek bleiben davon grundsätzlich unberührt, da sie in
+            // separaten State-Bereichen liegen, die diese Funktion gar nicht anfasst.
+            // =========================================================================
+            const kalenderLeerenDatum = ref(toISODate(new Date()));
+            const kalenderLeerenBestaetigt = ref(false);
+            const kalenderLeerenMeldung = ref("");
+
+            const kalenderLeerenBetroffeneAnzahl = computed(() => {
+                const stichtag = kalenderLeerenDatum.value;
+                if (!stichtag) return 0;
+                let anzahl = 0;
+                for (const key in state.value.stundenplan.daten) {
+                    const slot = state.value.stundenplan.daten[key];
+                    if (slot.notizGepinnt) continue;
+                    const datum = key.substring(0, key.lastIndexOf("_"));
+                    if (datum < stichtag) anzahl++;
+                }
+                anzahl += state.value.aufgaben.filter(a => a.datum < stichtag).length;
+                return anzahl;
+            });
+
+            const kalenderLeeren = () => {
+                if (kalenderLeerenBetroffeneAnzahl.value === 0) return;
+                if (!kalenderLeerenBestaetigt.value) {
+                    kalenderLeerenBestaetigt.value = true;
+                    return;
+                }
+
+                const stichtag = kalenderLeerenDatum.value;
+
+                for (const key in state.value.stundenplan.daten) {
+                    const slot = state.value.stundenplan.daten[key];
+                    if (slot.notizGepinnt) continue;
+                    const datum = key.substring(0, key.lastIndexOf("_"));
+                    if (datum < stichtag) {
+                        // Verknüpfungen zu diesem Slot lösen (Dokument selbst bleibt erhalten)
+                        state.value.dokumente.forEach(d => {
+                            if (d.verknuepftMit.stundenSlot === key) d.verknuepftMit.stundenSlot = null;
+                        });
+                        delete state.value.stundenplan.daten[key];
+                    }
+                }
+
+                state.value.aufgaben = state.value.aufgaben.filter(a => a.datum >= stichtag);
+
+                for (const datum in state.value.farben.tage) {
+                    if (datum < stichtag) delete state.value.farben.tage[datum];
+                }
+                for (const key in state.value.farben.stunden) {
+                    const datum = key.substring(0, key.lastIndexOf("_"));
+                    if (datum < stichtag) delete state.value.farben.stunden[key];
+                }
+
+                kalenderLeerenBestaetigt.value = false;
+                kalenderLeerenMeldung.value = `✔️ Kalender vor dem ${formatDatumLang(stichtag)} geleert.`;
+                setTimeout(() => { kalenderLeerenMeldung.value = ""; }, 6000);
             };
 
 
@@ -3052,6 +3155,18 @@
                 }
             };
 
+            // Eigene, separate Funktion für die Planungsbibliothek (Bug-Fix: der
+            // "Neuer Themenordner"-Button dort rief bisher dieselbe Funktion wie
+            // das Notiz-Archiv auf und legte fälschlich einen Notiz-Ordner statt
+            // eines Bibliotheks-Ordners an).
+            const neuerOrdnerNameBib = ref("");
+            const erstelleOrdnerBib = () => {
+                const name = neuerOrdnerNameBib.value.trim();
+                if (name === "" || state.value.bibliothek.ordner.some(o => o.name === name)) return;
+                state.value.bibliothek.ordner.push({ name, plaene: [] });
+                neuerOrdnerNameBib.value = "";
+            };
+
             const getNotesInFolder = (folderName) => {
                 const results = [];
                 for (const key in state.value.stundenplan.daten) {
@@ -3068,13 +3183,24 @@
                                 datum: formatDatumLang(datumKey),
                                 currentFolder,
                                 stundenName: `${data.fach}, ${stunde}. Std.`,
-                                klasse: `Klasse ${data.klasse}`
+                                klasse: `Klasse ${data.klasse}`,
+                                gepinnt: !!data.notizGepinnt
                             });
                         }
                     }
                 }
-                results.sort((a, b) => b.key.localeCompare(a.key));
+                // Gepinnte Notizen immer zuerst, sonst neueste zuerst
+                results.sort((a, b) => {
+                    if (a.gepinnt !== b.gepinnt) return a.gepinnt ? -1 : 1;
+                    return b.key.localeCompare(a.key);
+                });
                 return results;
+            };
+
+            const toggleNotizPin = (slotKey) => {
+                if (state.value.stundenplan.daten[slotKey]) {
+                    state.value.stundenplan.daten[slotKey].notizGepinnt = !state.value.stundenplan.daten[slotKey].notizGepinnt;
+                }
             };
 
             const getNotesCountInFolder = (folderName) => {
@@ -3902,6 +4028,11 @@
                 vorlageWochentage,
                 getVorlageEintrag,
                 uebernehmeVorlageFuerRestlichesSchuljahr,
+                kalenderLeerenDatum,
+                kalenderLeerenBestaetigt,
+                kalenderLeerenMeldung,
+                kalenderLeerenBetroffeneAnzahl,
+                kalenderLeeren,
                 
                 activeBibPlan,
                 activeBibPlanOrdner,
@@ -4016,9 +4147,12 @@
                 getSchuelerNameById,
                 gefilterteSchuelerNotizen,
                 erstelleOrdner,
+                neuerOrdnerNameBib,
+                erstelleOrdnerBib,
                 getNotesInFolder,
                 getNotesCountInFolder,
                 verschiebeNotiz,
+                toggleNotizPin,
                 exportData,
                 importData,
 
