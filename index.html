@@ -1070,9 +1070,21 @@
     </div>
 
     <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-2 dark:bg-gray-800 dark:border-gray-700 s-card s-border">
-        <h5 class="text-xs font-bold acc-sch-text uppercase tracking-wider">Häusliche & Familiäre Lebenssituation</h5>
+        <div class="flex justify-between items-center">
+            <h5 class="text-xs font-bold acc-sch-text uppercase tracking-wider">Häusliche & Familiäre Lebenssituation</h5>
+            <button @click="lebenssituationVorschau = !lebenssituationVorschau" class="text-[10px] font-semibold acc-sch-text hover:underline">
+                {{ lebenssituationVorschau ? '✍️ Bearbeiten' : '👁️ Vorschau' }}
+            </button>
+        </div>
         <p class="text-[11px] text-gray-400 leading-snug dark:text-gray-500 t2">Sichere hier wichtige Infos zu Erziehungsberechtigten, Förderansätzen oder emotionalen Rahmenbedingungen.</p>
-        <textarea v-model="getSelectedSchueler.lebenssituation" rows="6" class="w-full rounded-lg p-3 text-xs focus:outline-none resize-none custom-scroll s-input acc-sch-ring"></textarea>
+        <template v-if="!lebenssituationVorschau">
+            <div class="flex gap-1">
+                <button @click="formatiereLebenssituation('fett')" class="px-2.5 py-1 rounded text-xs font-bold s-card-soft t1 s-hover" title="Auswahl fett machen">B</button>
+                <button @click="formatiereLebenssituation('rot')" class="px-2.5 py-1 rounded text-xs font-bold danger-text s-card-soft s-hover" title="Auswahl rot färben">A</button>
+            </div>
+            <textarea ref="lebenssituationTextarea" v-model="getSelectedSchueler.lebenssituation" rows="6" class="w-full rounded-lg p-3 text-xs focus:outline-none resize-none custom-scroll s-input acc-sch-ring"></textarea>
+        </template>
+        <div v-else class="w-full rounded-lg p-3 text-xs leading-relaxed s-input" style="min-height:9rem" v-html="renderFormatierterText(getSelectedSchueler.lebenssituation) || '<span class=\'t3\'>Noch kein Text vorhanden.</span>'"></div>
     </div>
 </div>
 
@@ -1200,7 +1212,11 @@
 
                                 <div v-if="state.ui.showManualFoerderEditor" class="p-3 bg-stone-50 rounded-xl border border-stone-200 space-y-2.5 dark:bg-gray-900 s-card-soft">
                                     <input type="text" v-model="neuerFoerderplan.titel" placeholder="Titel (z.B. LRS-Förderung 2026)" class="w-full border border-gray-200 rounded-lg p-2 text-xs focus:outline-none bg-white dark:border-gray-700 dark:bg-gray-800 s-card s-border">
-                                    <textarea v-model="neuerFoerderplan.inhalt" rows="4" placeholder="Förderziele, Maßnahmen und Absprachen..." class="w-full border border-gray-200 rounded-lg p-2 text-xs focus:outline-none bg-white resize-none dark:border-gray-700 dark:bg-gray-800 s-card s-border"></textarea>
+                                    <div class="flex gap-1">
+                                        <button @click="formatiereFoerderplanInhalt('fett')" class="px-2.5 py-1 rounded text-xs font-bold s-card-soft t1 s-hover" title="Auswahl fett machen">B</button>
+                                        <button @click="formatiereFoerderplanInhalt('rot')" class="px-2.5 py-1 rounded text-xs font-bold danger-text s-card-soft s-hover" title="Auswahl rot färben">A</button>
+                                    </div>
+                                    <textarea ref="foerderplanInhaltTextarea" v-model="neuerFoerderplan.inhalt" rows="4" placeholder="Förderziele, Maßnahmen und Absprachen..." class="w-full border border-gray-200 rounded-lg p-2 text-xs focus:outline-none bg-white resize-none dark:border-gray-700 dark:bg-gray-800 s-card s-border"></textarea>
                                     <button @click="speichereManuellenFoerderplan" class="w-full py-2 rounded-lg text-xs font-bold transition acc-sch-solid">Sichern</button>
                                 </div>
                             </div>
@@ -1555,14 +1571,20 @@
 
                         <div class="space-y-2">
                             <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block dark:text-gray-500 t2">Beschreibung & Ablauf</span>
-                            <div v-if="!bibEditMode" class="bg-white border border-gray-200 rounded-2xl p-4 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 s-card t1 s-border">
-                                {{ activeBibPlan.inhalt || 'Noch kein Beschreibungstext vorhanden. Klicke auf "Plan editieren", um hier etwas zu hinterlegen!' }}
+                            <div v-if="!bibEditMode" class="bg-white border border-gray-200 rounded-2xl p-4 text-sm text-gray-700 leading-relaxed dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 s-card t1 s-border"
+                                 v-html="renderFormatierterText(activeBibPlan.inhalt) || 'Noch kein Beschreibungstext vorhanden. Klicke auf &quot;Plan editieren&quot;, um hier etwas zu hinterlegen!'">
                             </div>
-                            <textarea v-else 
-                                      v-model="activeBibPlan.inhalt" 
-                                      rows="6" 
-                                      placeholder="Hier kannst du den groben Ablauf oder wichtige Einstiegs-Notizen niederschreiben..." 
-                                      class="w-full rounded-2xl p-4 text-sm focus:outline-none s-input acc-unt-ring"></textarea>
+                            <template v-else>
+                                <div class="flex gap-1">
+                                    <button @click="formatiereBibInhalt('fett')" class="px-2.5 py-1 rounded text-xs font-bold s-card-soft t1 s-hover" title="Auswahl fett machen">B</button>
+                                    <button @click="formatiereBibInhalt('rot')" class="px-2.5 py-1 rounded text-xs font-bold danger-text s-card-soft s-hover" title="Auswahl rot färben">A</button>
+                                </div>
+                                <textarea ref="bibInhaltTextarea"
+                                          v-model="activeBibPlan.inhalt" 
+                                          rows="6" 
+                                          placeholder="Hier kannst du den groben Ablauf oder wichtige Einstiegs-Notizen niederschreiben..." 
+                                          class="w-full rounded-2xl p-4 text-sm focus:outline-none s-input acc-unt-ring"></textarea>
+                            </template>
                         </div>
 
                         <div class="space-y-2">
@@ -2007,8 +2029,8 @@
             </div>
             
             <div class="flex-1 p-6 overflow-y-auto custom-scroll bg-stone-50 dark:bg-gray-900 s-card-soft">
-                <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs leading-relaxed text-sm text-gray-800 whitespace-pre-wrap dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 s-card t1 s-border">
-                    {{ state.ui.activeFoerderplanReadOnly.inhalt || 'Dieses Dokument enthält keinen Text.' }}
+                <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs leading-relaxed text-sm text-gray-800 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 s-card t1 s-border"
+                     v-html="renderFormatierterText(state.ui.activeFoerderplanReadOnly.inhalt) || 'Dieses Dokument enthält keinen Text.'">
                 </div>
             </div>
         </div>
@@ -2691,6 +2713,72 @@
 
             const neueNote = ref({ fach: "", typ: "Klassenarbeit", titel: "", note: "", bemerkung: "", datum: toISODate(new Date()) });
             const neuerFoerderplan = ref({ titel: "", inhalt: "" });
+
+            // =========================================================================
+            // TEXTFORMATIERUNG (NEU): Fett/Rot für ausgewählten Text in Lebenssituation,
+            // Förderplänen und der Planungs-Beschreibung. Bewusst KEIN echter Rich-Text-
+            // Editor (contenteditable) - das führt in Vue regelmäßig zu Cursor-Sprung-
+            // Bugs beim Tippen. Stattdessen: normale <textarea> (v-model funktioniert
+            // dort zuverlässig) mit eigener, simpler Markup-Syntax ([b]...[/b],
+            // [rot]...[/rot]), die beim Anzeigen in echtes HTML umgewandelt wird.
+            // =========================================================================
+            const lebenssituationTextarea = ref(null);
+            const foerderplanInhaltTextarea = ref(null);
+            const bibInhaltTextarea = ref(null);
+            const lebenssituationVorschau = ref(false);
+
+            const formatiereAuswahl = (el, wert, setWert, markupStart, markupEnd) => {
+                if (!el) return;
+                const start = el.selectionStart;
+                const end = el.selectionEnd;
+                if (start === end) return;
+                const basis = wert || "";
+                const ausgewaehlt = basis.substring(start, end);
+                const neu = basis.substring(0, start) + markupStart + ausgewaehlt + markupEnd + basis.substring(end);
+                setWert(neu);
+                nextTick(() => {
+                    el.focus();
+                    const pos = end + markupStart.length + markupEnd.length;
+                    el.setSelectionRange(pos, pos);
+                });
+            };
+
+            const formatiereLebenssituation = (typ) => {
+                if (!getSelectedSchueler.value) return;
+                const [start, end] = typ === 'fett' ? ['[b]', '[/b]'] : ['[rot]', '[/rot]'];
+                formatiereAuswahl(lebenssituationTextarea.value, getSelectedSchueler.value.lebenssituation,
+                    (v) => { getSelectedSchueler.value.lebenssituation = v; }, start, end);
+            };
+
+            const formatiereFoerderplanInhalt = (typ) => {
+                const [start, end] = typ === 'fett' ? ['[b]', '[/b]'] : ['[rot]', '[/rot]'];
+                formatiereAuswahl(foerderplanInhaltTextarea.value, neuerFoerderplan.value.inhalt,
+                    (v) => { neuerFoerderplan.value.inhalt = v; }, start, end);
+            };
+
+            const formatiereBibInhalt = (typ) => {
+                if (!activeBibPlan.value) return;
+                const [start, end] = typ === 'fett' ? ['[b]', '[/b]'] : ['[rot]', '[/rot]'];
+                formatiereAuswahl(bibInhaltTextarea.value, activeBibPlan.value.inhalt,
+                    (v) => { activeBibPlan.value.inhalt = v; }, start, end);
+            };
+
+            // Wandelt die eigene Markup-Syntax in echtes HTML um - Text wird ZUERST
+            // escaped (Sicherheit gegen kaputtes Layout/Injection), erst danach werden
+            // die eigenen [b]/[rot]-Tags (die keine HTML-Sonderzeichen enthalten und
+            // daher vom Escaping unberührt bleiben) in <strong>/<span> umgewandelt.
+            const renderFormatierterText = (text) => {
+                if (!text) return '';
+                let html = text
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                html = html
+                    .replace(/\[b\](.*?)\[\/b\]/gs, '<strong>$1</strong>')
+                    .replace(/\[rot\](.*?)\[\/rot\]/gs, '<span style="color:var(--danger-text);font-weight:600">$1</span>')
+                    .replace(/\n/g, '<br>');
+                return html;
+            };
 
             const activeDeleteConfirm = ref({ type: null, id: null });
 
@@ -4073,6 +4161,14 @@
                 getBewertungFuerDatum,
                 setzeZielBewertungFuerDatum,
                 neuerFoerderplan,
+                lebenssituationTextarea,
+                foerderplanInhaltTextarea,
+                bibInhaltTextarea,
+                lebenssituationVorschau,
+                formatiereLebenssituation,
+                formatiereFoerderplanInhalt,
+                formatiereBibInhalt,
+                renderFormatierterText,
                 fuegeNoteHinzu,
                 speichereManuellenFoerderplan,
                 importFoerderplan,
