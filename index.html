@@ -1065,16 +1065,38 @@
                         <div v-if="state.ui.schuelerTab === 'personal'" class="space-y-4 animate-in fade-in duration-100">
     <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 dark:bg-gray-800 dark:border-gray-700 s-card s-border">
         <h5 class="text-xs font-bold acc-sch-text uppercase tracking-wider">Daten des Schülers</h5>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-3 gap-3">
             <div>
                 <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1 dark:text-gray-400 t3">Voller Name</label>
                 <input type="text" v-model="getSelectedSchueler.name" class="w-full rounded-lg p-2 text-xs focus:outline-none s-input acc-sch-ring">
+            </div>
+            <div>
+                <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1 dark:text-gray-400 t3">Klasse</label>
+                <input type="text" v-model="getSelectedSchueler.klasse" class="w-full rounded-lg p-2 text-xs focus:outline-none s-input acc-sch-ring">
             </div>
             <div>
                 <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1 dark:text-gray-400 t3">Geburtsdatum</label>
                 <input type="date" v-model="getSelectedSchueler.geburtsdatum" class="w-full rounded-lg p-2 text-xs focus:outline-none s-input acc-sch-ring">
             </div>
         </div>
+    </div>
+
+    <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-2 dark:bg-gray-800 dark:border-gray-700 s-card s-border">
+        <div class="flex justify-between items-center">
+            <h5 class="text-xs font-bold acc-sch-text uppercase tracking-wider">Kontaktdaten</h5>
+            <button @click="kontaktdatenVorschau = !kontaktdatenVorschau" class="text-[10px] font-semibold acc-sch-text hover:underline">
+                {{ kontaktdatenVorschau ? '✍️ Bearbeiten' : '👁️ Vorschau' }}
+            </button>
+        </div>
+        <p class="text-[11px] text-gray-400 leading-snug dark:text-gray-500 t2">Telefon, E-Mail, Erziehungsberechtigte, Erreichbarkeiten - frei eintragbar.</p>
+        <template v-if="!kontaktdatenVorschau">
+            <div class="flex gap-1">
+                <button @click="formatiereKontaktdaten('fett')" class="px-2.5 py-1 rounded text-xs font-bold s-card-soft t1 s-hover" title="Auswahl fett machen">B</button>
+                <button @click="formatiereKontaktdaten('rot')" class="px-2.5 py-1 rounded text-xs font-bold danger-text s-card-soft s-hover" title="Auswahl rot färben">A</button>
+            </div>
+            <textarea ref="kontaktdatenTextarea" v-model="getSelectedSchueler.kontaktdaten" rows="4" class="w-full rounded-lg p-3 text-xs focus:outline-none resize-none custom-scroll s-input acc-sch-ring"></textarea>
+        </template>
+        <div v-else class="w-full rounded-lg p-3 text-xs leading-relaxed s-input" style="min-height:6rem" v-html="renderFormatierterText(getSelectedSchueler.kontaktdaten) || '<span class=\'t3\'>Noch kein Text vorhanden.</span>'"></div>
     </div>
 
     <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-2 dark:bg-gray-800 dark:border-gray-700 s-card s-border">
@@ -2224,6 +2246,7 @@
                             name: "Max Mustermann", 
                             klasse: "4b",
                             geburtsdatum: "2016-04-12",
+                            kontaktdaten: "",
                             lebenssituation: "Lebt bei den Großeltern. Großvater ist Hauptansprechpartner. Benötigt oft emotionale Bestätigung im Matheunterricht.",
                             noten: [
                                 { id: "g_1", fach: "Mathematik", typ: "Klassenarbeit", note: "2+", bemerkung: "Hervorragende Geometrie-Leistung", datum: "2026-05-18" },
@@ -2248,6 +2271,7 @@
                             name: "Anna Schmidt", 
                             klasse: "4b",
                             geburtsdatum: "2016-09-25",
+                            kontaktdaten: "",
                             lebenssituation: "Beide Eltern voll berufstätig. Sehr selbstständig.",
                             noten: [],
                             foerderplaene: [],
@@ -2259,6 +2283,7 @@
                             name: "Levin Maier", 
                             klasse: "4b",
                             geburtsdatum: "2016-02-05",
+                            kontaktdaten: "",
                             lebenssituation: "ADHS-Diagnose gesichert. Nimmt Medikamente. Sitzt vorne an der Tafel.",
                             noten: [],
                             foerderplaene: [],
@@ -2379,6 +2404,7 @@
                         state.value.schueler.schuelerListe.forEach(s => {
                             if (!s.geburtsdatum) s.geburtsdatum = "";
                             if (!s.lebenssituation) s.lebenssituation = "";
+                            if (!s.kontaktdaten) s.kontaktdaten = "";
                             if (!s.noten) s.noten = [];
                             if (!s.foerderplaene) s.foerderplaene = [];
                             if (!s.ziele) s.ziele = [];
@@ -2785,6 +2811,15 @@
                 const [start, end] = typ === 'fett' ? ['[b]', '[/b]'] : ['[rot]', '[/rot]'];
                 formatiereAuswahl(lebenssituationTextarea.value, getSelectedSchueler.value.lebenssituation,
                     (v) => { getSelectedSchueler.value.lebenssituation = v; }, start, end);
+            };
+
+            const kontaktdatenTextarea = ref(null);
+            const kontaktdatenVorschau = ref(false);
+            const formatiereKontaktdaten = (typ) => {
+                if (!getSelectedSchueler.value) return;
+                const [start, end] = typ === 'fett' ? ['[b]', '[/b]'] : ['[rot]', '[/rot]'];
+                formatiereAuswahl(kontaktdatenTextarea.value, getSelectedSchueler.value.kontaktdaten,
+                    (v) => { getSelectedSchueler.value.kontaktdaten = v; }, start, end);
             };
 
             const formatiereFoerderplanInhalt = (typ) => {
@@ -3474,6 +3509,7 @@
                     name: neuerSchuelerName.value.trim(),
                     klasse: klasse,
                     geburtsdatum: "",
+                    kontaktdaten: "",
                     lebenssituation: "",
                     noten: [],
                     foerderplaene: [],
@@ -4258,6 +4294,9 @@
                 foerderplanInhaltTextarea,
                 bibInhaltTextarea,
                 lebenssituationVorschau,
+                kontaktdatenTextarea,
+                kontaktdatenVorschau,
+                formatiereKontaktdaten,
                 formatiereLebenssituation,
                 formatiereFoerderplanInhalt,
                 formatiereBibInhalt,
