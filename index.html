@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
@@ -485,6 +485,11 @@
                             <button @click="removeField('kurzeintrag')" class="danger-soft px-1.5 py-0.5 rounded text-[10px] font-bold">🗑️</button>
                         </div>
                         <input type="text" v-model="activeSlotData.kurzeintrag" placeholder="z.B. Klassenarbeit ankündigen..." class="w-full rounded-lg p-2 text-sm focus:outline-none s-input acc-ter-ring">
+                        <div class="flex items-center gap-1.5 mt-1.5">
+                            <span class="text-[10px] t3">🔔 Erinnerung ab</span>
+                            <input type="number" v-model.number="activeSlotData.kurzeintragErinnerungTage" min="0" class="w-12 rounded p-1 text-xs text-center focus:outline-none s-input acc-ter-ring">
+                            <span class="text-[10px] t3">Tage vorher (0 = aus)</span>
+                        </div>
                     </div>
 
                     <div v-if="state.ui.activeFields.includes('planung')" class="rounded-lg p-2 relative acc-unt-soft acc-unt-border">
@@ -561,8 +566,10 @@
 
                         <div class="flex gap-1.5">
                             <input type="text" v-model="neueAufgabeText" placeholder="Neue Aufgabe..." class="flex-1 rounded-lg px-2 py-1.5 text-xs focus:outline-none s-input acc-ter-ring" @keyup.enter="fuegeAufgabeHinzu">
+                            <input type="number" v-model.number="neueAufgabeErinnerungTage" min="0" title="Erinnerung: Tage vorher (0 = keine)" class="w-12 rounded-lg px-1 py-1.5 text-xs text-center focus:outline-none s-input acc-ter-ring">
                             <button @click="fuegeAufgabeHinzu" class="px-3 py-1.5 rounded-lg text-xs font-bold acc-ter-solid">+</button>
                         </div>
+                        <p class="text-[9px] t3 mt-1">🔔 Zahl = Tage vorher, ab denen die Aufgabe schon als Erinnerung erscheint (0 = nur am Fälligkeitstag).</p>
                     </div>
 
                     <!-- MODULE 6: Verknüpfte Dokumente für diese Stunde -->
@@ -800,12 +807,18 @@
                     </div>
                     <div class="space-y-1.5 mb-2">
                         <div v-for="a in eintrag.aufgaben" :key="a.id" class="flex items-center gap-2 rounded-lg p-2.5 s-card s-border-soft">
-                            <input type="checkbox" :checked="a.erledigt" @change="toggleAufgabeErledigt(a.id)" class="w-4 h-4 shrink-0">
+                            <input type="checkbox" :checked="a.erledigt" @change="a.virtuell ? toggleKurzeintragErledigt(a.slotKey) : toggleAufgabeErledigt(a.id)" class="w-4 h-4 shrink-0">
                             <div class="flex-1 min-w-0">
-                                <span class="text-xs block" :class="a.erledigt ? 't3 line-through' : 't1'">{{ a.text }}</span>
-                                <span class="text-[10px] t3">{{ a.fach }}<template v-if="a.klasse"> • {{ a.klasse }}</template> • {{ a.stunde }}. Stunde</span>
+                                <span class="text-xs block" :class="a.erledigt ? 't3 line-through' : 't1'">
+                                    <template v-if="a.virtuell">📌 </template>{{ a.text }}
+                                </span>
+                                <span class="text-[10px] t3">
+                                    {{ a.fach }}<template v-if="a.klasse"> • {{ a.klasse }}</template> • {{ a.stunde }}. Stunde
+                                    <template v-if="a.faelligAm !== eintrag.tag.datum"> • 🔔 fällig {{ formatDatumLang(a.faelligAm) }}</template>
+                                </span>
                             </div>
-                            <button @click="triggerDelete('aufgabe', a.id)" 
+                            <span v-if="a.virtuell" class="text-[9px] t3 px-1.5 py-0.5 rounded-full s-panel-soft shrink-0">Termin</span>
+                            <button v-else @click="triggerDelete('aufgabe', a.id)" 
                                     :class="['px-1.5 py-0.5 rounded text-[10px] font-bold transition-all shrink-0', isConfirming('aufgabe', a.id) ? 'confirm-step' : 'danger-soft']">
                                 <span v-if="isConfirming('aufgabe', a.id)">Sicher?</span>
                                 <span v-else>🗑️</span>
@@ -2395,6 +2408,9 @@
                         state.value.bibliothek = parsed.bibliothek || state.value.bibliothek;
                         state.value.archiv = parsed.archiv || state.value.archiv;
                         state.value.aufgaben = Array.isArray(parsed.aufgaben) ? parsed.aufgaben : [];
+                        state.value.aufgaben.forEach(a => {
+                            if (typeof a.erinnerungTage !== 'number') a.erinnerungTage = 0;
+                        });
                         state.value.dokumente = Array.isArray(parsed.dokumente) ? parsed.dokumente : [];
                         state.value.dokumente.forEach(d => {
                             if (!d.verknuepftMit) d.verknuepftMit = { schuelerIds: [], planungId: null, stundenSlot: null };
@@ -2425,6 +2441,8 @@
                             }
                             if (!slot.farbe) slot.farbe = "";
                             if (typeof slot.notizGepinnt !== 'boolean') slot.notizGepinnt = false;
+                            if (typeof slot.kurzeintragErinnerungTage !== 'number') slot.kurzeintragErinnerungTage = 0;
+                            if (typeof slot.kurzeintragErledigt !== 'boolean') slot.kurzeintragErledigt = false;
                         }
 
                     } catch (e) {
@@ -2886,6 +2904,8 @@
                     fach: vorlage ? vorlage.fach : "Freistunde",
                     klasse: vorlage ? vorlage.klasse : "-",
                     kurzeintrag: "",
+                    kurzeintragErinnerungTage: 0,
+                    kurzeintragErledigt: false,
                     planungLink: "",
                     planungId: "",
                     planungOrdner: "",
@@ -3750,6 +3770,7 @@
             // bleibt erhalten, damit "Aufgaben dieser Woche" sie filtern kann.
             // =========================================================================
             const neueAufgabeText = ref("");
+            const neueAufgabeErinnerungTage = ref(0);
             const showAufgabenWocheModal = ref(false);
 
             const getAufgabenFuerSlot = (datum, stunde) => {
@@ -3768,10 +3789,12 @@
                     datum,
                     stunde,
                     fach: activeSlotData.value.fach || "",
-                    klasse: activeSlotData.value.klasse || ""
+                    klasse: activeSlotData.value.klasse || "",
+                    erinnerungTage: Math.max(0, neueAufgabeErinnerungTage.value || 0)
                 });
 
                 neueAufgabeText.value = "";
+                neueAufgabeErinnerungTage.value = 0;
             };
 
             const toggleAufgabeErledigt = (id) => {
@@ -3779,13 +3802,62 @@
                 if (a) a.erledigt = !a.erledigt;
             };
 
-            // Aufgaben der aktuell angezeigten Woche, gruppiert nach Wochentag
+            // =========================================================================
+            // ERINNERUNGSFENSTER (NEU): Eine Aufgabe/ein Termin mit gesetztem
+            // "erinnerungTage"-Wert taucht nicht nur an ihrem Fälligkeitstag auf,
+            // sondern an JEDEM Tag ab (Fälligkeitsdatum - erinnerungTage) auf - und
+            // bleibt (überfällig) sichtbar, bis sie abgehakt wird. Erledigte Einträge
+            // verschwinden aus allen Vorschau-/Überfällig-Tagen, bleiben aber an ihrem
+            // eigentlichen Fälligkeitstag sichtbar (durchgestrichen), wie bisher.
+            // =========================================================================
+            const istAmTagRelevant = (faelligDatum, erinnerungTage, tagDatum, erledigt) => {
+                if (tagDatum === faelligDatum) return true;
+                if (erledigt) return false;
+                if (tagDatum < faelligDatum) {
+                    return tagDatum >= addDays(faelligDatum, -(erinnerungTage || 0));
+                }
+                return true; // überfällig und noch nicht erledigt
+            };
+
+            const toggleKurzeintragErledigt = (slotKey) => {
+                const slot = state.value.stundenplan.daten[slotKey];
+                if (slot) slot.kurzeintragErledigt = !slot.kurzeintragErledigt;
+            };
+
+            // Aufgaben UND mit Erinnerung versehene Termine der aktuell angezeigten
+            // Woche, gruppiert nach Wochentag. Termine werden dabei nicht verändert -
+            // sie werden hier nur zusätzlich als abhakbare Erinnerungs-Einträge
+            // "gespiegelt" (virtuell: true), solange kurzeintragErinnerungTage > 0 ist.
             const aufgabenDieserWoche = computed(() => {
-                return wochenTage.value.map(tag => ({
-                    tag,
-                    aufgaben: state.value.aufgaben.filter(a => a.datum === tag.datum)
-                        .sort((a, b) => a.stunde - b.stunde)
-                }));
+                return wochenTage.value.map(tag => {
+                    const echteAufgaben = state.value.aufgaben
+                        .filter(a => istAmTagRelevant(a.datum, a.erinnerungTage || 0, tag.datum, a.erledigt))
+                        .map(a => ({
+                            id: a.id, text: a.text, erledigt: a.erledigt, fach: a.fach, klasse: a.klasse,
+                            stunde: a.stunde, faelligAm: a.datum, virtuell: false
+                        }));
+
+                    const terminErinnerungen = [];
+                    for (const key in state.value.stundenplan.daten) {
+                        const slot = state.value.stundenplan.daten[key];
+                        if (!slot.kurzeintrag || !slot.kurzeintragErinnerungTage) continue;
+                        const lastUnderscoreIdx = key.lastIndexOf("_");
+                        const slotDatum = key.substring(0, lastUnderscoreIdx);
+                        const slotStunde = key.substring(lastUnderscoreIdx + 1);
+                        if (istAmTagRelevant(slotDatum, slot.kurzeintragErinnerungTage, tag.datum, slot.kurzeintragErledigt)) {
+                            terminErinnerungen.push({
+                                id: 'termin_' + key, text: slot.kurzeintrag, erledigt: !!slot.kurzeintragErledigt,
+                                fach: slot.fach, klasse: slot.klasse, stunde: Number(slotStunde), faelligAm: slotDatum,
+                                virtuell: true, slotKey: key
+                            });
+                        }
+                    }
+
+                    return {
+                        tag,
+                        aufgaben: [...echteAufgaben, ...terminErinnerungen].sort((a, b) => a.stunde - b.stunde)
+                    };
+                });
             });
 
             // =========================================================================
@@ -4341,10 +4413,12 @@
                 formatiereBearbeitetesGespraech,
 
                 neueAufgabeText,
+                neueAufgabeErinnerungTage,
                 showAufgabenWocheModal,
                 getAufgabenFuerSlot,
                 fuegeAufgabeHinzu,
                 toggleAufgabeErledigt,
+                toggleKurzeintragErledigt,
                 aufgabenDieserWoche,
 
                 showDokumenteModal,
