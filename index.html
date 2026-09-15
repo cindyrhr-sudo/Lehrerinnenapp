@@ -265,6 +265,10 @@
         .max-w-2xl { max-width: 42rem; }
         .max-w-lg { max-width: 32rem; }
         .max-h-\[85vh\] { max-height: 85vh; }
+        /* h-[85vh] wurde im Markup an mehreren Modals verwendet, war aber
+           ebenfalls nicht im statischen Build enthalten - gleiches Problem
+           wie bei max-h-[85vh] oben, separat nachgezogen. */
+        .h-\[85vh\] { height: 85vh; }
 
         /* iPad-Anpassung: die feste 700px-Mindestbreite des Stundenplan-Grids
            ist jetzt eine eigene Klasse (statt einer neuen Tailwind-Bracket-Klasse,
@@ -288,6 +292,58 @@
            eigene Klasse statt neuem Tailwind-Bracket-Wert (siehe Kommentar oben
            bei .grid-min-w-plan zum selben Thema). */
         .max-h-form-scroll { max-height: 70vh; }
+
+        /* ===================================================================
+           FORMULARELEMENTE VEREINHEITLICHEN (NEU)
+           Grund: iOS Safari rendert <select> und <input type="date"> mit einer
+           eigenen, nativen Innenpolsterung/Höhe (u.a. wegen des eingebauten
+           Pfeil-/Kalender-Icons), die sich NICHT über normales CSS-Padding
+           überschreiben lässt, solange -webkit-appearance nicht zurückgesetzt
+           wird. Dadurch wirkten Select- und Datumsfelder bisher sichtbar
+           größer/höher als daneben liegende Text-Inputs, obwohl beide exakt
+           dieselben Tailwind-Klassen (z.B. p-1.5/p-2) hatten. Mit appearance:none
+           bestimmt jetzt ausschließlich unser eigenes CSS die Größe - für
+           <select> wird der native Pfeil dafür durch ein eigenes SVG-Pfeil-Icon
+           per background-image ersetzt, sonst wäre nicht mehr erkennbar, dass
+           das Feld aufklappbar ist.
+           =================================================================== */
+        select, input[type="date"] {
+            -webkit-appearance: none;
+            appearance: none;
+            border-radius: 0.5rem;
+        }
+        select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%235d6258' stroke-width='2'%3E%3Cpath d='M6 8l4 4 4-4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.55rem center;
+            background-size: 0.85em;
+            padding-right: 1.7rem !important;
+        }
+        html.dark select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23b7bfae' stroke-width='2'%3E%3Cpath d='M6 8l4 4 4-4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        }
+        /* iOS zeigt bei input[type=date] ohne eigenen appearance-reset teils
+           zusätzliches internes Padding um das Kalender-Symbol. Wir blenden
+           das native Symbol nicht aus (bleibt bedienbar), sorgen aber dafür,
+           dass Breite/Höhe konsistent aus unserem eigenen CSS kommen. */
+        input[type="date"]::-webkit-date-and-time-value {
+            text-align: left;
+        }
+
+        /* ===================================================================
+           BOX-SIZING SICHERHEITSNETZ (NEU)
+           Falls das statisch vorkompilierte css/tailwind.css kein globales
+           Preflight mit box-sizing:border-box enthält, würden alle Felder mit
+           w-full + Padding + Border BREITER als ihr Container werden (Content-
+           Box-Modell addiert Padding/Border zur angegebenen Breite hinzu statt
+           sie einzurechnen). Das würde Eingabefelder ebenfalls uneinheitlich
+           groß wirken lassen bzw. über ihre Box hinausragen lassen. Global
+           erzwungen, unabhängig davon ob das Preflight bereits vorhanden ist
+           (identischer Wert, daher keine Nebenwirkung falls schon gesetzt).
+           =================================================================== */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
     </style>
 </head>
 <body class="overflow-hidden select-none">
@@ -1078,18 +1134,18 @@
                         <div v-if="state.ui.schuelerTab === 'personal'" class="space-y-4 animate-in fade-in duration-100">
     <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 dark:bg-gray-800 dark:border-gray-700 s-card s-border">
         <h5 class="text-xs font-bold acc-sch-text uppercase tracking-wider">Daten des Schülers</h5>
-        <div class="grid grid-cols-3 gap-3">
-            <div>
+        <div class="flex flex-wrap items-end gap-2">
+            <div class="flex-1 min-w-[140px]">
                 <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1 dark:text-gray-400 t3">Voller Name</label>
-                <input type="text" v-model="getSelectedSchueler.name" class="w-full rounded-lg p-2 text-xs focus:outline-none s-input acc-sch-ring">
+                <input type="text" v-model="getSelectedSchueler.name" class="w-full rounded-lg px-2 py-1.5 text-xs focus:outline-none s-input acc-sch-ring">
             </div>
-            <div>
+            <div class="w-20 shrink-0">
                 <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1 dark:text-gray-400 t3">Klasse</label>
-                <input type="text" v-model="getSelectedSchueler.klasse" class="w-full rounded-lg p-2 text-xs focus:outline-none s-input acc-sch-ring">
+                <input type="text" v-model="getSelectedSchueler.klasse" class="w-full rounded-lg px-2 py-1.5 text-xs focus:outline-none s-input acc-sch-ring">
             </div>
-            <div>
+            <div class="w-[9.5rem] shrink-0">
                 <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1 dark:text-gray-400 t3">Geburtsdatum</label>
-                <input type="date" v-model="getSelectedSchueler.geburtsdatum" class="w-full rounded-lg p-2 text-xs focus:outline-none s-input acc-sch-ring">
+                <input type="date" v-model="getSelectedSchueler.geburtsdatum" class="w-full rounded-lg px-2 py-1.5 text-xs focus:outline-none s-input acc-sch-ring">
             </div>
         </div>
     </div>
@@ -1565,17 +1621,20 @@
                         </div>
 
                         <div v-for="ordner in state.bibliothek.ordner" :key="ordner.name" class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-xs dark:bg-gray-800 dark:border-gray-700 s-card s-border">
-                            <div class="bg-gray-100/80 px-3 py-2 text-xs font-bold text-gray-700 border-b border-gray-200 flex justify-between items-center dark:text-gray-700 dark:border-gray-700 t1 s-border">
-                                <span class="truncate">📁 {{ ordner.name }}</span>
+                            <div class="bg-gray-100/80 px-3 py-2 text-xs font-bold text-gray-700 border-b border-gray-200 flex justify-between items-center dark:text-gray-700 dark:border-gray-700 t1 s-border cursor-pointer" @click="toggleOrdnerBib(ordner.name)">
+                                <span class="truncate flex items-center gap-1.5 min-w-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0 transition-transform duration-200" :class="{'-rotate-90': istOrdnerBibEingeklappt(ordner.name)}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                    <span class="truncate">📁 {{ ordner.name }}</span>
+                                </span>
                                 
                                 <button @click.stop="triggerDelete('ordnerBib', ordner.name)" 
-                                        :class="['px-2 py-0.5 rounded text-[9px] font-bold transition-all', isConfirming('ordnerBib', ordner.name) ? 'confirm-step' : 'danger-soft']">
+                                        :class="['px-2 py-0.5 rounded text-[9px] font-bold transition-all shrink-0', isConfirming('ordnerBib', ordner.name) ? 'confirm-step' : 'danger-soft']">
                                     <span v-if="isConfirming('ordnerBib', ordner.name)">Sicher?</span>
                                     <span v-else>🗑️ Ordner</span>
                                 </button>
                             </div>
                             
-                            <div class="divide-y divide-gray-100">
+                            <div v-if="!istOrdnerBibEingeklappt(ordner.name)" class="divide-y divide-gray-100">
                                 <div v-for="plan in ordner.plaene" :key="plan.id"
                                         @click="waehlePlanAusBib(ordner.name, plan.id)"
                                         :class="['w-full p-3 text-xs transition flex justify-between items-center cursor-pointer', activeBibPlan?.id === plan.id ? 'acc-unt-solid font-bold' : 't2 s-hover']">
@@ -1601,6 +1660,9 @@
                                            class="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-[11px] focus:outline-none bg-white dark:border-gray-700 dark:bg-gray-800 s-card s-border">
                                     <button @click="erstelleNeuePlanung(ordner.name)" class="px-2.5 py-1 rounded-lg text-[11px] font-bold acc-unt-solid">+</button>
                                 </div>
+                            </div>
+                            <div v-else class="px-3 py-1.5 text-[10px] t3">
+                                {{ ordner.plaene ? ordner.plaene.length : 0 }} Stunde(n) - eingeklappt
                             </div>
                         </div>
                     </div>
@@ -2784,6 +2846,22 @@
             // mehr Platz bekommt. Öffnet sich automatisch, wenn eine Planung
             // direkt aus dem Stundenplan heraus aufgerufen wird.
             const praesentationsModus = ref(false);
+            // Ein-/ausklappbare Ordner (NEU): pro Ordnername merken, ob er
+            // eingeklappt ist. Ein Array aus Ordnernamen reicht - Zugehörigkeit
+            // wird per includes() geprüft. Startzustand: alle Ordner offen
+            // (kein Eintrag im Array = nicht eingeklappt).
+            const eingeklappteOrdnerBib = ref([]);
+            const istOrdnerBibEingeklappt = (ordnerName) => {
+                return eingeklappteOrdnerBib.value.includes(ordnerName);
+            };
+            const toggleOrdnerBib = (ordnerName) => {
+                const idx = eingeklappteOrdnerBib.value.indexOf(ordnerName);
+                if (idx >= 0) {
+                    eingeklappteOrdnerBib.value.splice(idx, 1);
+                } else {
+                    eingeklappteOrdnerBib.value.push(ordnerName);
+                }
+            };
             const neuerOrdnerName = ref("");
             const neuerPlanTitelMap = ref({});
             const neuerLinkTitel = ref("");
@@ -4330,6 +4408,9 @@
                 activeBibPlanOrdner,
                 bibEditMode,
                 praesentationsModus,
+                eingeklappteOrdnerBib,
+                istOrdnerBibEingeklappt,
+                toggleOrdnerBib,
                 neuerOrdnerName,
                 neuerPlanTitelMap,
                 neuerLinkTitel,
