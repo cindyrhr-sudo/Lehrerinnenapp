@@ -307,10 +307,22 @@
            per background-image ersetzt, sonst wäre nicht mehr erkennbar, dass
            das Feld aufklappbar ist.
            =================================================================== */
-        select, input[type="date"] {
+        select, input[type="date"], input[type="number"] {
             -webkit-appearance: none;
             appearance: none;
             border-radius: 0.5rem;
+        }
+        /* Zahlen-Spinner (Auf-/Ab-Pfeile) ausblenden: reservieren in iOS Safari
+           sonst zusätzlichen internen Platz, wodurch das Feld sichtbar breiter/
+           höher wirkt als Text-Inputs mit identischen Tailwind-Klassen daneben -
+           exakt dasselbe Problem wie bei select/date oben. */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
         }
         select {
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%235d6258' stroke-width='2'%3E%3Cpath d='M6 8l4 4 4-4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -1135,7 +1147,7 @@
     <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs space-y-3 dark:bg-gray-800 dark:border-gray-700 s-card s-border">
         <h5 class="text-xs font-bold acc-sch-text uppercase tracking-wider">Daten des Schülers</h5>
         <div class="flex flex-wrap items-end gap-2">
-            <div class="flex-1 min-w-[140px]">
+            <div class="flex-1" style="min-width:140px">
                 <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1 dark:text-gray-400 t3">Voller Name</label>
                 <input type="text" v-model="getSelectedSchueler.name" class="w-full rounded-lg px-2 py-1.5 text-xs focus:outline-none s-input acc-sch-ring">
             </div>
@@ -1143,7 +1155,7 @@
                 <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1 dark:text-gray-400 t3">Klasse</label>
                 <input type="text" v-model="getSelectedSchueler.klasse" class="w-full rounded-lg px-2 py-1.5 text-xs focus:outline-none s-input acc-sch-ring">
             </div>
-            <div class="w-[9.5rem] shrink-0">
+            <div class="shrink-0" style="width:9.5rem">
                 <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1 dark:text-gray-400 t3">Geburtsdatum</label>
                 <input type="date" v-model="getSelectedSchueler.geburtsdatum" class="w-full rounded-lg px-2 py-1.5 text-xs focus:outline-none s-input acc-sch-ring">
             </div>
@@ -1623,7 +1635,7 @@
                         <div v-for="ordner in state.bibliothek.ordner" :key="ordner.name" class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-xs dark:bg-gray-800 dark:border-gray-700 s-card s-border">
                             <div class="bg-gray-100/80 px-3 py-2 text-xs font-bold text-gray-700 border-b border-gray-200 flex justify-between items-center dark:text-gray-700 dark:border-gray-700 t1 s-border cursor-pointer" @click="toggleOrdnerBib(ordner.name)">
                                 <span class="truncate flex items-center gap-1.5 min-w-0">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0 transition-transform duration-200" :class="{'-rotate-90': istOrdnerBibEingeklappt(ordner.name)}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 transition-transform duration-200" :class="{'-rotate-90': istOrdnerBibEingeklappt(ordner.name)}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                                     <span class="truncate">📁 {{ ordner.name }}</span>
                                 </span>
                                 
