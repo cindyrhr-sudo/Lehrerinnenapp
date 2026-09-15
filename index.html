@@ -759,7 +759,7 @@
             <div class="p-4 space-y-3">
                 <div>
                     <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 dark:text-gray-500 t2">Schüler auswählen</label>
-                    <select v-model="neueNotiz.schuelerId" class="w-full border border-gray-200 rounded-lg p-2 text-sm focus:outline-none dark:border-gray-700 s-border">
+                    <select v-model="neueNotiz.schuelerId" class="w-full rounded-lg p-2 text-sm focus:outline-none s-input">
                         <option value="" disabled>Bitte wählen...</option>
                         <option v-for="schueler in state.schueler.schuelerListe" :key="schueler.id" :value="schueler.id">
                             {{ schueler.name }} ({{ schueler.klasse }})
@@ -772,7 +772,7 @@
                         <button @click="formatiereNeueSchuelerNotiz('fett')" class="px-2 py-0.5 rounded text-[10px] font-bold s-panel-soft t1" title="Auswahl fett machen">B</button>
                         <button @click="formatiereNeueSchuelerNotiz('rot')" class="px-2 py-0.5 rounded text-[10px] font-bold danger-text s-panel-soft" title="Auswahl rot färben">A</button>
                     </div>
-                    <textarea ref="neueSchuelerNotizTextarea" v-model="neueNotiz.text" rows="3" placeholder="z.B. Hat Hausaufgabe vergessen, stört..." class="w-full border border-gray-200 rounded-lg p-2 text-sm resize-none focus:outline-none dark:border-gray-700 s-border"></textarea>
+                    <textarea ref="neueSchuelerNotizTextarea" v-model="neueNotiz.text" rows="3" placeholder="z.B. Hat Hausaufgabe vergessen, stört..." class="w-full rounded-lg p-2 text-sm resize-none focus:outline-none s-input"></textarea>
                 </div>
                 <div class="flex gap-2">
                     <button v-for="tag in ['#Hausaufgaben', '#Mitarbeit', '#Verhalten']" :key="tag" @click="neueNotiz.text += ' ' + tag" class="px-2 py-1 rounded-lg text-[10px] font-semibold transition acc-sch-soft">{{ tag }}</button>
@@ -1202,7 +1202,7 @@
                         <div v-if="state.ui.schuelerTab === 'notizen'" class="space-y-3 animate-in fade-in duration-100">
                             <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-200 shadow-xs mb-1 dark:bg-gray-800 dark:border-gray-700 s-card s-border">
                                 <span class="text-xs font-semibold text-gray-700 dark:text-gray-200 t1">Beobachtungsprotokoll</span>
-                                <input type="text" v-model="suchBegriff" placeholder="🔍 Filtern..." class="border border-gray-200 rounded px-2 py-1 text-[11px] focus:outline-none dark:border-gray-700 s-border">
+                                <input type="text" v-model="suchBegriff" placeholder="🔍 Filtern..." class="rounded px-2 py-1 text-[11px] focus:outline-none s-input">
                             </div>
                             
                             <div class="space-y-2">
