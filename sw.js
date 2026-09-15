@@ -1,4 +1,4 @@
-// ========================================================================= 
+// =========================================================================
 // SERVICE WORKER - Mein Schulplaner
 // =========================================================================
 // Cache-Strategie: "Cache First, Network Fallback"
@@ -11,7 +11,7 @@
 // weiterhin die alte, zwischengespeicherte Version!
 // =========================================================================
 
-const CACHE_VERSION = 'v11';
+const CACHE_VERSION = 'v13';
 const CACHE_NAME = `schulplaner-cache-${CACHE_VERSION}`;
 
 // Alle Dateien, die für den Offline-Betrieb nötig sind.
