@@ -589,6 +589,10 @@
                             <button @click="formatiereAktiveNotiz('rot')" class="px-2 py-0.5 rounded text-[10px] font-bold danger-text s-card-soft s-hover" title="Auswahl rot färben">A</button>
                         </div>
                         <textarea ref="aktiveNotizTextarea" v-model="activeSlotData.freitext" rows="4" placeholder="Schreib frei auf..." class="w-full rounded-lg p-2 text-sm focus:outline-none resize-none custom-scroll s-input acc-unt-ring"></textarea>
+                        <label class="flex items-center gap-1.5 mt-1.5 cursor-pointer">
+                            <input type="checkbox" v-model="activeSlotData.notizNichtImArchiv" class="w-3.5 h-3.5 shrink-0">
+                            <span class="text-[10px] t3">Nicht im Notiz-Archiv speichern (nur hier im Kalender sichtbar)</span>
+                        </label>
                     </div>
 
                     <div v-if="state.ui.activeFields.includes('sketch')" class="rounded-lg p-2 relative border s-card-soft s-border-soft">
@@ -1904,19 +1908,29 @@
                                 </span>
                                 <span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-[10px] font-bold dark:bg-gray-700 dark:text-gray-300 s-panel-soft t2">{{ notiz.klasse }}</span>
                             </div>
-                            <p class="text-sm text-gray-700 pr-16 dark:text-gray-200 t1" v-html="renderFormatierterText(notiz.text)"></p>
-                            
-                            <button @click="triggerDelete('notizArchiv', notiz.key)" 
-                                    :class="['absolute right-3 top-10 px-2 py-1 rounded text-[10px] font-bold transition-all', isConfirming('notizArchiv', notiz.key) ? 'confirm-step' : 'danger-soft']">
-                                <span v-if="isConfirming('notizArchiv', notiz.key)">Sicher?</span>
-                                <span v-else>🗑️ Löschen</span>
-                            </button>
+                            <p class="text-sm text-gray-700 dark:text-gray-200 t1" v-html="renderFormatierterText(notiz.text)"></p>
 
-                            <div class="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center dark:border-gray-700 s-border-soft">
-                                <span class="text-[10px] text-gray-400 dark:text-gray-500 t2">Verschieben nach:</span>
-                                <select :value="notiz.currentFolder" @change="verschiebeNotiz(notiz.key, $event.target.value)" class="border border-gray-200 rounded px-2 py-1 text-[11px] bg-gray-50 focus:outline-none dark:border-gray-700 dark:bg-gray-800 s-card-soft s-border">
-                                    <option v-for="ordner in state.archiv.themenOrdnerList" :key="ordner" :value="ordner">📁 {{ ordner }}</option>
-                                </select>
+                            <div class="mt-4 pt-3 border-t border-gray-100 flex flex-wrap justify-between items-center gap-2 dark:border-gray-700 s-border-soft">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-[10px] text-gray-400 dark:text-gray-500 t2">Verschieben nach:</span>
+                                    <select :value="notiz.currentFolder" @change="verschiebeNotiz(notiz.key, $event.target.value)" class="border border-gray-200 rounded px-2 py-1 text-[11px] bg-gray-50 focus:outline-none dark:border-gray-700 dark:bg-gray-800 s-card-soft s-border">
+                                        <option v-for="ordner in state.archiv.themenOrdnerList" :key="ordner" :value="ordner">📁 {{ ordner }}</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center gap-1.5 shrink-0">
+                                    <button @click="triggerDelete('notizArchivAusschluss', notiz.key)"
+                                            :class="['px-2 py-1 rounded text-[10px] font-bold transition-all', isConfirming('notizArchivAusschluss', notiz.key) ? 'confirm-step' : 's-card-soft t2 s-hover']"
+                                            title="Notiz bleibt im Kalender erhalten, wird aber aus diesem Archiv ausgeblendet">
+                                        <span v-if="isConfirming('notizArchivAusschluss', notiz.key)">Sicher?</span>
+                                        <span v-else>📤 Nur aus Archiv</span>
+                                    </button>
+                                    <button @click="triggerDelete('notizArchiv', notiz.key)" 
+                                            :class="['px-2 py-1 rounded text-[10px] font-bold transition-all', isConfirming('notizArchiv', notiz.key) ? 'confirm-step' : 'danger-soft']"
+                                            title="Löscht die Notiz komplett, auch aus dem Kalender">
+                                        <span v-if="isConfirming('notizArchiv', notiz.key)">Sicher?</span>
+                                        <span v-else>🗑️ Ganz löschen</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2515,6 +2529,7 @@
                             }
                             if (!slot.farbe) slot.farbe = "";
                             if (typeof slot.notizGepinnt !== 'boolean') slot.notizGepinnt = false;
+                            if (typeof slot.notizNichtImArchiv !== 'boolean') slot.notizNichtImArchiv = false;
                             if (typeof slot.kurzeintragErinnerungTage !== 'number') slot.kurzeintragErinnerungTage = 0;
                             if (typeof slot.kurzeintragErledigt !== 'boolean') slot.kurzeintragErledigt = false;
                         }
@@ -3001,6 +3016,7 @@
                     planungOrdner: "",
                     freitext: "",
                     notizGepinnt: false,
+                    notizNichtImArchiv: false,
                     themenOrdner: "Allgemein",
                     sketches: [],
                     farbe: ""
@@ -3466,7 +3482,7 @@
                 const results = [];
                 for (const key in state.value.stundenplan.daten) {
                     const data = state.value.stundenplan.daten[key];
-                    if (data.freitext && data.freitext.trim() !== "") {
+                    if (data.freitext && data.freitext.trim() !== "" && !data.notizNichtImArchiv) {
                         const currentFolder = data.themenOrdner || "Allgemein";
                         if (currentFolder === folderName) {
                             const lastUnderscoreIdx = key.lastIndexOf("_");
@@ -3502,7 +3518,7 @@
                 let count = 0;
                 for (const key in state.value.stundenplan.daten) {
                     const data = state.value.stundenplan.daten[key];
-                    if (data.freitext && data.freitext.trim() !== "" && (data.themenOrdner || "Allgemein") === folderName) {
+                    if (data.freitext && data.freitext.trim() !== "" && !data.notizNichtImArchiv && (data.themenOrdner || "Allgemein") === folderName) {
                         count++;
                     }
                 }
@@ -4188,6 +4204,14 @@
                 else if (type === 'notizArchiv') {
                     if (state.value.stundenplan.daten[id]) {
                         state.value.stundenplan.daten[id].freitext = "";
+                    }
+                }
+                else if (type === 'notizArchivAusschluss') {
+                    // Entfernt die Notiz nur aus der Archiv-Ansicht (setzt das
+                    // Ausschluss-Flag) - der Text bleibt im Kalenderslot erhalten
+                    // und ist dort weiterhin sichtbar/bearbeitbar.
+                    if (state.value.stundenplan.daten[id]) {
+                        state.value.stundenplan.daten[id].notizNichtImArchiv = true;
                     }
                 }
                 else if (type === 'note') {
