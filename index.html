@@ -638,7 +638,7 @@
 
                         <div class="flex gap-1.5">
                             <input type="text" v-model="neueAufgabeText" placeholder="Neue Aufgabe..." class="flex-1 rounded-lg px-2 py-1.5 text-xs focus:outline-none s-input acc-ter-ring" @keyup.enter="fuegeAufgabeHinzu">
-                            <input type="number" v-model.number="neueAufgabeErinnerungTage" min="0" title="Erinnerung: Tage vorher (0 = keine)" class="w-18 rounded-lg px-1 py-1.5 text-xs text-center focus:outline-none s-input acc-ter-ring">
+                            <input type="number" v-model.number="neueAufgabeErinnerungTage" min="0" title="Erinnerung: Tage vorher (0 = keine)" class="w-24 rounded-lg px-1 py-1.5 text-xs text-center focus:outline-none s-input acc-ter-ring">
                             <button @click="fuegeAufgabeHinzu" class="px-3 py-1.5 rounded-lg text-xs font-bold acc-ter-solid">+</button>
                         </div>
                         <p class="text-[9px] t3 mt-1">🔔 Zahl = Tage vorher, ab denen die Aufgabe schon als Erinnerung erscheint (0 = nur am Fälligkeitstag).</p>
