@@ -555,7 +555,7 @@
                         <input type="text" v-model="activeSlotData.kurzeintrag" placeholder="z.B. Klassenarbeit ankündigen..." class="w-full rounded-lg p-2 text-sm focus:outline-none s-input acc-ter-ring">
                         <div class="flex items-center gap-1.5 mt-1.5">
                             <span class="text-[10px] t3">🔔 Erinnerung ab</span>
-                            <input type="number" v-model.number="activeSlotData.kurzeintragErinnerungTage" min="0" class="w-12 rounded p-1 text-xs text-center focus:outline-none s-input acc-ter-ring">
+                            <input type="number" v-model.number="activeSlotData.kurzeintragErinnerungTage" min="0" class="rounded p-1 text-xs text-center focus:outline-none s-input acc-ter-ring" style="flex:0 0 2.5rem; min-width:0">
                             <span class="text-[10px] t3">Tage vorher (0 = aus)</span>
                         </div>
                     </div>
@@ -637,9 +637,9 @@
                         </div>
 
                         <div class="flex gap-1.5">
-                            <input type="text" v-model="neueAufgabeText" placeholder="Neue Aufgabe..." class="flex-1 rounded-lg px-2 py-1.5 text-xs focus:outline-none s-input acc-ter-ring" @keyup.enter="fuegeAufgabeHinzu">
-                            <input type="number" v-model.number="neueAufgabeErinnerungTage" min="0" title="Erinnerung: Tage vorher (0 = keine)" class="w-24 rounded-lg px-1 py-1.5 text-xs text-center focus:outline-none s-input acc-ter-ring">
-                            <button @click="fuegeAufgabeHinzu" class="px-3 py-1.5 rounded-lg text-xs font-bold acc-ter-solid">+</button>
+                            <input type="text" v-model="neueAufgabeText" placeholder="Neue Aufgabe..." class="rounded-lg px-2 py-1.5 text-xs focus:outline-none s-input acc-ter-ring" style="flex:1 1 auto; min-width:0" @keyup.enter="fuegeAufgabeHinzu">
+                            <input type="number" v-model.number="neueAufgabeErinnerungTage" min="0" title="Erinnerung: Tage vorher (0 = keine)" class="rounded-lg px-1 py-1.5 text-xs text-center focus:outline-none s-input acc-ter-ring" style="flex:0 0 2.5rem; min-width:0">
+                            <button @click="fuegeAufgabeHinzu" class="px-3 py-1.5 rounded-lg text-xs font-bold acc-ter-solid shrink-0">+</button>
                         </div>
                         <p class="text-[9px] t3 mt-1">🔔 Zahl = Tage vorher, ab denen die Aufgabe schon als Erinnerung erscheint (0 = nur am Fälligkeitstag).</p>
                     </div>
