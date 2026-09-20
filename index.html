@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
@@ -107,12 +107,17 @@
         }
 
         /* Neutrale Bausteine (ersetzen bg-white/bg-gray-*/text-gray-* + ihre dark:-Paare) */
-        .s-card { background: var(--bg-surface); border: 1px solid var(--border-1); color: var(--text-1); }
-        .s-card-soft { background: var(--bg-surface-2); border: 1px solid var(--border-1); color: var(--text-1); }
-        .s-input { background: var(--bg-surface-2); border: 1px solid var(--border-1); color: var(--text-1); }
+        /* WICHTIG: background-color statt background (Kurzform) - die Kurzform
+           würde implizit auch background-image/-repeat/-position zurücksetzen
+           und damit z.B. das Pfeil-Icon von <select> im Zusammenspiel mit den
+           html.dark-Regeln weiter unten unvorhersehbar verhalten lassen
+           (Pfeil verschwindet im Hellmodus, kachelt sich im Dunkelmodus). */
+        .s-card { background-color: var(--bg-surface); border: 1px solid var(--border-1); color: var(--text-1); }
+        .s-card-soft { background-color: var(--bg-surface-2); border: 1px solid var(--border-1); color: var(--text-1); }
+        .s-input { background-color: var(--bg-surface-2); border: 1px solid var(--border-1); color: var(--text-1); }
         .s-input::placeholder { color: var(--text-3); }
-        .s-panel { background: var(--bg-surface); }
-        .s-panel-soft { background: var(--bg-surface-2); }
+        .s-panel { background-color: var(--bg-surface); }
+        .s-panel-soft { background-color: var(--bg-surface-2); }
         .s-hover:hover { background: var(--bg-surface-3); }
         .s-border { border-color: var(--border-1) !important; }
         .s-border-soft { border-color: var(--border-2) !important; }
