@@ -11,7 +11,7 @@
 // weiterhin die alte, zwischengespeicherte Version!
 // =========================================================================
 
-const CACHE_VERSION = 'v17';
+const CACHE_VERSION = 'v18';
 const CACHE_NAME = `schulplaner-cache-${CACHE_VERSION}`;
 
 // Alle Dateien, die für den Offline-Betrieb nötig sind.
