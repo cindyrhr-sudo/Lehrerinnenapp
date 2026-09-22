@@ -1382,9 +1382,16 @@
                                             <h6 class="text-sm font-bold text-gray-800 dark:text-gray-100 t1">🎯 {{ ziel.titel }}</h6>
                                             <p class="text-[10px] text-gray-400 dark:text-gray-500 t2">Aktiv seit {{ formatDatum(ziel.startDatum) }}</p>
                                         </div>
-                                        <button @click="schliesseZielAb(ziel.id)" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-500 text-emerald-700 hover:text-white border border-emerald-200 rounded-lg text-[10px] font-bold transition shrink-0 dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-300">
-                                            ✔️ Abgeschlossen
-                                        </button>
+                                        <div class="flex items-center gap-1.5 shrink-0">
+                                            <button @click="schliesseZielAb(ziel.id)" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-500 text-emerald-700 hover:text-white border border-emerald-200 rounded-lg text-[10px] font-bold transition dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-300">
+                                                ✔️ Abgeschlossen
+                                            </button>
+                                            <button @click="triggerDelete('ziel', ziel.id)"
+                                                    :class="['px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all', isConfirming('ziel', ziel.id) ? 'confirm-step' : 'danger-soft']">
+                                                <span v-if="isConfirming('ziel', ziel.id)">Sicher?</span>
+                                                <span v-else>🗑️</span>
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div class="bg-stone-50 rounded-xl p-3 border border-gray-100 dark:bg-gray-900 dark:border-gray-700 s-card-soft s-border-soft">
@@ -1451,9 +1458,16 @@
                                             <h6 class="text-sm font-bold text-gray-600 dark:text-gray-300 t2">✅ {{ ziel.titel }}</h6>
                                             <p class="text-[10px] text-gray-400 dark:text-gray-500 t2">{{ formatDatum(ziel.startDatum) }} – {{ formatDatum(ziel.endDatum) }}</p>
                                         </div>
-                                        <button @click="reaktiviereZiel(ziel.id)" class="px-3 py-1.5 bg-gray-50 hover:bg-gray-200 text-gray-500 border border-gray-200 rounded-lg text-[10px] font-bold transition shrink-0 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 s-card-soft t2 s-border">
-                                            ↺ Reaktivieren
-                                        </button>
+                                        <div class="flex items-center gap-1.5 shrink-0">
+                                            <button @click="reaktiviereZiel(ziel.id)" class="px-3 py-1.5 bg-gray-50 hover:bg-gray-200 text-gray-500 border border-gray-200 rounded-lg text-[10px] font-bold transition dark:bg-gray-900 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 s-card-soft t2 s-border">
+                                                ↺ Reaktivieren
+                                            </button>
+                                            <button @click="triggerDelete('ziel', ziel.id)"
+                                                    :class="['px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all', isConfirming('ziel', ziel.id) ? 'confirm-step' : 'danger-soft']">
+                                                <span v-if="isConfirming('ziel', ziel.id)">Sicher?</span>
+                                                <span v-else>🗑️</span>
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div v-if="ziel.bewertungen && ziel.bewertungen.length > 0">
@@ -3021,7 +3035,7 @@
                     planungOrdner: "",
                     freitext: "",
                     notizGepinnt: false,
-                    notizNichtImArchiv: false,
+                    notizNichtImArchiv: true,
                     themenOrdner: "Allgemein",
                     sketches: [],
                     farbe: ""
@@ -4227,6 +4241,12 @@
                 }
                 else if (type === 'gespraech') {
                     getSelectedSchueler.value.gespraeche = getSelectedSchueler.value.gespraeche.filter(g => g.id !== id);
+                }
+                else if (type === 'ziel') {
+                    getSelectedSchueler.value.ziele = getSelectedSchueler.value.ziele.filter(z => z.id !== id);
+                    // Offene Auswertungsansicht für das gelöschte Ziel ebenfalls aufräumen
+                    const idx = offeneZielAuswertungen.value.indexOf(id);
+                    if (idx >= 0) offeneZielAuswertungen.value.splice(idx, 1);
                 }
                 else if (type === 'aufgabe') {
                     state.value.aufgaben = state.value.aufgaben.filter(a => a.id !== id);
