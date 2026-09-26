@@ -2584,13 +2584,15 @@
                         // noch nicht initialisiert).
                         for (const key in state.value.stundenplan.daten) {
                             const slot = state.value.stundenplan.daten[key];
-                            const istLeer = !slot.kurzeintrag && !slot.freitext &&
-                                !(slot.sketches && slot.sketches.length > 0) &&
-                                !slot.planungId && !slot.farbe;
-                            if (!istLeer) continue;
                             const lastUnderscoreIdx = key.lastIndexOf("_");
                             const datum = key.substring(0, lastUnderscoreIdx);
                             const stundeNo = Number(key.substring(lastUnderscoreIdx + 1));
+                            const hatAufgaben = state.value.aufgaben.some(a => a.datum === datum && a.stunde === stundeNo);
+                            const hatDokumente = state.value.dokumente.some(dok => dok.verknuepftMit && dok.verknuepftMit.stundenSlot === key);
+                            const istLeer = !slot.kurzeintrag && !slot.freitext &&
+                                !(slot.sketches && slot.sketches.length > 0) &&
+                                !slot.planungId && !slot.farbe && !hatAufgaben && !hatDokumente;
+                            if (!istLeer) continue;
                             const d = new Date(datum + "T00:00:00");
                             const wochentagIdx = (d.getDay() + 6) % 7;
                             let abweichend = false;
@@ -3273,6 +3275,8 @@
                 if (slot.sketches && slot.sketches.length > 0) return false;
                 if (slot.planungId) return false;
                 if (slot.farbe) return false;
+                if (getAufgabenFuerSlot(datum, stundeNo).length > 0) return false;
+                if (dokumenteFuerSlot(datum, stundeNo).length > 0) return false;
                 if (istAbweichendVonVorlage(datum, stundeNo)) return false;
                 return true;
             };
@@ -3494,15 +3498,21 @@
             };
 
             const getZellenFaehnchen = (datum, stundeNo) => {
-                const data = getSlotData(datum, stundeNo);
-                if (!data) return [];
-                const haupt = getZellenHauptinhalt(datum, stundeNo);
                 const flags = [];
-                if (data.kurzeintrag && haupt?.typ !== 'kurzeintrag') flags.push('📌');
-                if (data.freitext && haupt?.typ !== 'freitext') flags.push('✍️');
-                if (data.sketches && data.sketches.length > 0 && haupt?.typ !== 'sketch') flags.push('🎨');
-                if (data.planungLink && haupt?.typ !== 'planung') flags.push('🔗');
+                const data = getSlotData(datum, stundeNo);
+                if (data) {
+                    const haupt = getZellenHauptinhalt(datum, stundeNo);
+                    if (data.kurzeintrag && haupt?.typ !== 'kurzeintrag') flags.push('📌');
+                    if (data.freitext && haupt?.typ !== 'freitext') flags.push('✍️');
+                    if (data.sketches && data.sketches.length > 0 && haupt?.typ !== 'sketch') flags.push('🎨');
+                    if (data.planungLink && haupt?.typ !== 'planung') flags.push('🔗');
+                }
+                // Aufgaben und Dokumente hängen unabhängig vom Slot-Objekt an
+                // datum+stunde (eigene Arrays) - deshalb unabhängig vom obigen
+                // "data existiert"-Fall prüfen, sonst verschwindet das Fähnchen,
+                // sobald der Slot mal leer war und aufgeräumt wurde.
                 if (getAufgabenFuerSlot(datum, stundeNo).length > 0) flags.push('✅');
+                if (dokumenteFuerSlot(datum, stundeNo).length > 0) flags.push('📎');
                 return flags;
             };
 
