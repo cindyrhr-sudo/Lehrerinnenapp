@@ -2835,12 +2835,12 @@
                     return { backgroundColor: resolveFarbe(farbeId) };
                 }
                 if (tag.heute) {
-                    return { backgroundColor: 'var(--unt-solid)' };
+                         return { backgroundColor: '#7be86f' };
                 }
                 // Ganze aktuelle Schulwoche dezent hervorheben (alle 5 Tage-Köpfe),
                 // schwächer als die "heute"-Farbe, aber unterscheidbar vom neutralen Grau.
                 if (istAktuelleWoche.value) {
-                    return { backgroundColor: 'var(--unt-soft-bg)' };
+                        return { backgroundColor: '#7be86f' };
                 }
                 return { backgroundColor: 'var(--bg-surface-3)' };
             };
