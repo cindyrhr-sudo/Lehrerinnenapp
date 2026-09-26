@@ -186,6 +186,14 @@
 
         /* Stundenplan: "heute"-Markierung und "ausgewählte Stunde"-Zustand */
         .ring-today { box-shadow: 0 0 0 2px var(--unt-solid); }
+        /* Rahmen um die KOMPLETTE Tagesspalte (Kopf + alle Stunden) - nur wenn
+           die Spalte tatsächlich das echte Kalenderdatum von heute ist, nicht
+           nur weil die Woche gerade als "aktuelle Schulwoche" gilt. */
+        .tag-heute-rahmen {
+            border: 2px solid var(--unt-solid);
+            border-radius: 1rem;
+            padding: 0.3rem;
+        }
         .cell-selected { background: var(--unt-soft-bg); border-color: var(--unt-border) !important; box-shadow: 0 0 0 2px var(--unt-ring); }
         .cell-goal-selected { background: var(--bew-soft-bg); border-color: var(--bew-border) !important; }
 
@@ -414,7 +422,7 @@
                     </div>
                 </div>
 
-                <div v-for="tag in wochenTage" :key="tag.datum" class="flex flex-col zoom-gap flex-1 min-w-0">
+                <div v-for="tag in wochenTage" :key="tag.datum" :class="['flex flex-col zoom-gap flex-1 min-w-0', tag.heute ? 'tag-heute-rahmen' : '']">
                     <div class="h-10 flex flex-col justify-center items-center rounded-lg shadow-xs relative overflow-hidden"
                          :class="[tag.heute ? 'ring-today' : '', tag.ferien ? 'ferien-stripes' : '']"
                          :style="getTagFarbeStyle(tag)">
@@ -2244,6 +2252,22 @@
         return toISODate(d);
     }
 
+    // "Aktuelle Schulwoche" statt reiner Kalenderwoche: Am Wochenende (ab Freitag
+    // 24 Uhr = Samstag 00:00) gilt bereits die kommende Woche als "aktuell", nicht
+    // mehr die gerade zu Ende gegangene. Montag bis Freitag verhält sich wie gehabt
+    // (Montag der laufenden Woche). Nur für die Bestimmung "was ist gerade dran"
+    // gedacht - für reine Datumsrechnung bleibt getMontagDerWoche unverändert.
+    function getAktuelleSchulwoche(isoDate) {
+        const d = new Date(isoDate + "T00:00:00");
+        const tag = d.getDay(); // 0=So, 6=Sa
+        if (tag === 6 || tag === 0) {
+            const tageBisMontag = tag === 6 ? 2 : 1;
+            d.setDate(d.getDate() + tageBisMontag);
+            return toISODate(d);
+        }
+        return getMontagDerWoche(isoDate);
+    }
+
     function formatTagDatum(isoDate) {
         const d = new Date(isoDate + "T00:00:00");
         return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.`;
@@ -2464,7 +2488,7 @@
                 }
             });
 
-            const aktuelleWoche = ref(getMontagDerWoche(toISODate(new Date())));
+            const aktuelleWoche = ref(getAktuelleSchulwoche(toISODate(new Date())));
             const STORAGE_KEY = "lehrerapp_v1_data";
 
             // Alte, direkt gespeicherte Hex-Farbwerte (aus der Zeit vor der
@@ -2717,12 +2741,19 @@
                 return null;
             });
 
+            // Zeigt an, ob die gerade angezeigte Woche der "aktuellen Schulwoche"
+            // entspricht (siehe getAktuelleSchulwoche - schaltet ab Freitag 24 Uhr
+            // schon auf die kommende Woche um). Steuert die Wochentag-Kopf-Farbe.
+            const istAktuelleWoche = computed(() => {
+                return aktuelleWoche.value === getAktuelleSchulwoche(toISODate(new Date()));
+            });
+
             const wocheVorOderZurueck = (tageDelta) => {
                 aktuelleWoche.value = addDays(aktuelleWoche.value, tageDelta);
             };
 
             const springeZuHeute = () => {
-                aktuelleWoche.value = getMontagDerWoche(toISODate(new Date()));
+                aktuelleWoche.value = getAktuelleSchulwoche(toISODate(new Date()));
             };
 
             const formatTagLangmitDatum = (isoDate) => {
@@ -2801,13 +2832,21 @@
                 if (farbeId) {
                     return { backgroundColor: resolveFarbe(farbeId) };
                 }
-                return tag.heute ? { backgroundColor: 'var(--unt-solid)' } : { backgroundColor: 'var(--bg-surface-3)' };
+                if (tag.heute) {
+                    return { backgroundColor: 'var(--unt-solid)' };
+                }
+                // Ganze aktuelle Schulwoche dezent hervorheben (alle 5 Tage-Köpfe),
+                // schwächer als die "heute"-Farbe, aber unterscheidbar vom neutralen Grau.
+                if (istAktuelleWoche.value) {
+                    return { backgroundColor: 'var(--unt-soft-bg)' };
+                }
+                return { backgroundColor: 'var(--bg-surface-3)' };
             };
 
             const getTagTextClass = (tag, secondary) => {
                 if (tag.ferien) return 'ferien-text' + (secondary ? '' : ' font-bold');
                 const farbeId = getTagFarbe(tag.datum);
-                if (farbeId) {
+                if (farbeId || (!tag.heute && istAktuelleWoche.value)) {
                     return darkMode.value
                         ? (secondary ? 'text-gray-300' : 'text-gray-100')
                         : (secondary ? 'text-gray-600' : 'text-gray-800');
@@ -4499,6 +4538,7 @@
                 wochenTage,
                 schuljahrLabel,
                 ferienDieserWoche,
+                istAktuelleWoche,
                 wocheVorOderZurueck,
                 springeZuHeute,
                 formatTagDatum,
