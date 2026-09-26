@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
@@ -505,7 +505,7 @@
                             <svg v-if="!state.ui.sidebarBreit" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 4v16M3 9l5-5 5 5M21 9l-5-5-5 5" transform="rotate(90 12 12)" /></svg>
                             <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l-5 7 5 7M15 5l5 7-5 7" /></svg>
                         </button>
-                        <button class="p-1.5 hover:bg-gray-200 rounded-full text-gray-400 hover:text-gray-600 transition dark:hover:bg-gray-600 dark:text-gray-500 t2" @click="state.ui.showSidebar = false">
+                        <button class="p-1.5 hover:bg-gray-200 rounded-full text-gray-400 hover:text-gray-600 transition dark:hover:bg-gray-600 dark:text-gray-500 t2" @click="schliesseStundenSidebar">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                     </div>
@@ -2553,6 +2553,34 @@
                             if (typeof slot.kurzeintragErledigt !== 'boolean') slot.kurzeintragErledigt = false;
                         }
 
+                        // Einmalige Aufräumaktion: "Geister-Slots" entfernen, die nur durch
+                        // Anklicken/Ansehen entstanden sind, aber nie wirklich befüllt wurden
+                        // (siehe pruneSlotWennLeer weiter unten für dieselbe Logik im
+                        // laufenden Betrieb - hier inline, da zu diesem frühen Zeitpunkt
+                        // noch nicht initialisiert).
+                        for (const key in state.value.stundenplan.daten) {
+                            const slot = state.value.stundenplan.daten[key];
+                            const istLeer = !slot.kurzeintrag && !slot.freitext &&
+                                !(slot.sketches && slot.sketches.length > 0) &&
+                                !slot.planungId && !slot.farbe;
+                            if (!istLeer) continue;
+                            const lastUnderscoreIdx = key.lastIndexOf("_");
+                            const datum = key.substring(0, lastUnderscoreIdx);
+                            const stundeNo = Number(key.substring(lastUnderscoreIdx + 1));
+                            const d = new Date(datum + "T00:00:00");
+                            const wochentagIdx = (d.getDay() + 6) % 7;
+                            let abweichend = false;
+                            if (wochentagIdx <= 4) {
+                                const vorlage = state.value.stundenplan.vorlage[`${VORLAGE_KEYS[wochentagIdx]}_${stundeNo}`];
+                                const vorlageFach = vorlage ? (vorlage.fach || "Freistunde") : "Freistunde";
+                                const vorlageKlasse = vorlage ? (vorlage.klasse || "-") : "-";
+                                abweichend = slot.fach !== vorlageFach || slot.klasse !== vorlageKlasse;
+                            }
+                            if (!abweichend) {
+                                delete state.value.stundenplan.daten[key];
+                            }
+                        }
+
                     } catch (e) {
                         console.error("Fehler beim Laden der App-Daten", e);
                     }
@@ -3183,8 +3211,45 @@
                 if (wochentagIdx > 4) return false;
                 const vorlage = state.value.stundenplan.vorlage[`${VORLAGE_KEYS[wochentagIdx]}_${stunde}`];
                 const vorlageFach = vorlage ? (vorlage.fach || "Freistunde") : "Freistunde";
-                const vorlageKlasse = vorlage ? (vorlage.klasse || "") : "";
+                const vorlageKlasse = vorlage ? (vorlage.klasse || "-") : "-";
                 return slot.fach !== vorlageFach || slot.klasse !== vorlageKlasse;
+            };
+
+            // =========================================================================
+            // LEERE SLOTS AUFRÄUMEN (NEU): Jede angeklickte Stunde legt über
+            // activeSlotData sofort ein volles Datenobjekt an - auch wenn man nur
+            // reinschaut und nichts einträgt. Das kostet unnötig Speicherplatz UND
+            // sorgt dafür, dass neue Standardwerte (z.B. notizNichtImArchiv) nie
+            // greifen, weil der Slot ja schon mit dem alten Standard "verbraucht"
+            // wurde. istSlotUnveraendert prüft, ob wirklich NICHTS Eigenes drinsteht
+            // (kein Termin, keine Notiz, keine Skizze, keine verknüpfte Planung,
+            // keine eigene Farbe, kein Fach/Klasse-Override) - pruneSlotWennLeer
+            // löscht solche "nur angeschauten" Slots wieder, bevor sie gespeichert
+            // werden. Verknüpfte Aufgaben/Dokumente hängen unabhängig vom Slot-
+            // Objekt an datum+stunde, gehen dabei also nicht verloren.
+            // =========================================================================
+            const istSlotUnveraendert = (datum, stundeNo, slot) => {
+                if (!slot) return true;
+                if (slot.kurzeintrag || slot.freitext) return false;
+                if (slot.sketches && slot.sketches.length > 0) return false;
+                if (slot.planungId) return false;
+                if (slot.farbe) return false;
+                if (istAbweichendVonVorlage(datum, stundeNo)) return false;
+                return true;
+            };
+
+            const pruneSlotWennLeer = (datum, stundeNo) => {
+                if (!datum || !stundeNo) return;
+                const key = `${datum}_${stundeNo}`;
+                const slot = state.value.stundenplan.daten[key];
+                if (slot && istSlotUnveraendert(datum, stundeNo, slot)) {
+                    delete state.value.stundenplan.daten[key];
+                }
+            };
+
+            const schliesseStundenSidebar = () => {
+                pruneSlotWennLeer(state.value.ui.activeSlot.datum, state.value.ui.activeSlot.stunde);
+                state.value.ui.showSidebar = false;
             };
 
             const setzeSlotAufVorlageZurueck = () => {
@@ -3195,7 +3260,7 @@
                 if (wochentagIdx > 4) return;
                 const vorlage = state.value.stundenplan.vorlage[`${VORLAGE_KEYS[wochentagIdx]}_${stunde}`];
                 activeSlotData.value.fach = vorlage ? (vorlage.fach || "Freistunde") : "Freistunde";
-                activeSlotData.value.klasse = vorlage ? (vorlage.klasse || "") : "";
+                activeSlotData.value.klasse = vorlage ? (vorlage.klasse || "-") : "-";
             };
 
             // =========================================================================
@@ -3314,6 +3379,10 @@
             });
 
             const oeffneStunde = (datum, stundeNo) => {
+                // Vorherige Stunde vor dem Wechsel aufräumen, falls sie nur
+                // angesehen, aber nicht wirklich befüllt wurde (siehe pruneSlotWennLeer).
+                pruneSlotWennLeer(state.value.ui.activeSlot.datum, state.value.ui.activeSlot.stunde);
+
                 state.value.ui.activeSlot = { datum, stunde: stundeNo };
                 state.value.ui.showSidebar = true;
                 state.value.ui.showCompactNotesPanel = false;
@@ -4450,6 +4519,8 @@
                 getStundeFarbeStyle,
                 istAbweichendVonVorlage,
                 setzeSlotAufVorlageZurueck,
+                pruneSlotWennLeer,
+                schliesseStundenSidebar,
 
                 fuegeFerienHinzu,
                 entferneFerien,
