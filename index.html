@@ -369,6 +369,42 @@
         *, *::before, *::after {
             box-sizing: border-box;
         }
+
+        /* ===================================================================
+           FUSSLEISTE: Platzsparmodus (NEU, mit dem Wochenplan-Button)
+           - Unter 1260px Breite verschwindet der Infotext links.
+           - Im Hochformat (oder unter 1005px) entfallen die Beschriftungen,
+             es bleiben nur die Icons. Die Leiste scrollt zur Not seitlich,
+             statt dass Buttons abgeschnitten werden.
+           =================================================================== */
+        .foot-btns { margin-left: auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+        .foot-btns::-webkit-scrollbar { display: none; }
+        .foot-btns > button { flex-shrink: 0; white-space: nowrap; }
+        @media (max-width: 1259px) {
+            .foot-info { display: none; }
+        }
+        @media (orientation: portrait), (max-width: 1004px) {
+            .foot-label { display: none; }
+            .foot-btns > button { padding-left: 0.95rem; padding-right: 0.95rem; }
+            .foot-icon { font-size: 1.1rem; line-height: 1.25rem; }
+        }
+
+        /* ===================================================================
+           WOCHENPLAN (NEU) - alles handgeschrieben, da css/tailwind.css
+           statisch vorkompiliert ist.
+           =================================================================== */
+        .wp-table-wrap { overflow-x: auto; border: 1px solid var(--border-1); border-radius: 0.75rem; background-color: var(--bg-surface); }
+        .wp-table { border-collapse: separate; border-spacing: 0; min-width: 100%; }
+        .wp-table th, .wp-table td { border-bottom: 1px solid var(--border-2); border-right: 1px solid var(--border-2); padding: 0.4rem; vertical-align: top; text-align: left; font-weight: normal; }
+        .wp-table thead th { background-color: var(--bg-surface-3); }
+        .wp-table tr:last-child td, .wp-table tr:last-child th { border-bottom: none; }
+        .wp-table th:last-child, .wp-table td:last-child { border-right: none; }
+        .wp-col { min-width: 11.5rem; }
+        .wp-rowhead { width: 7.5rem; min-width: 7.5rem; background-color: var(--bg-surface-2) !important; position: sticky; left: 0; z-index: 1; }
+        .wp-cell { display: block; width: 100%; min-height: 4.75rem; resize: vertical; font-size: 0.75rem; line-height: 1.35; padding: 0.4rem 0.5rem; border-radius: 0.5rem; font-family: inherit; }
+        .wp-chip { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.3rem 0.7rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 700; cursor: pointer; border: 1px solid var(--border-1); background-color: var(--bg-surface-2); color: var(--text-2); transition: background-color 0.15s ease; }
+        .wp-chip.on { background-color: var(--sch-solid); border-color: var(--sch-solid); color: #fff; }
+        .wp-label { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-2); margin-bottom: 0.25rem; }
     </style>
 </head>
 <body class="overflow-hidden select-none">
@@ -744,25 +780,28 @@
 
     </main>
     <footer class="bg-white border-t border-gray-200 px-6 py-3 flex justify-between items-center shrink-0 dark:bg-gray-800 dark:border-gray-700 s-card s-border">
-        <span class="text-xs text-gray-400 dark:text-gray-500 t2">Lehrer-Assistent Core • Hybrid Active</span>
-        <div class="flex gap-2">
-            <button class="px-4 py-2 rounded-xl text-xs font-semibold shadow-sm transition acc-unt-solid">
-                <span>Stundenplan</span>
+        <span class="foot-info text-xs text-gray-400 dark:text-gray-500 t2">Lehrer-Assistent Core • Hybrid Active</span>
+        <div class="foot-btns flex gap-2">
+            <button class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition acc-unt-solid" title="Stundenplan" aria-label="Stundenplan">
+                <span class="foot-icon">🕒</span><span class="foot-label">Stundenplan</span>
             </button>
-            <button class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition acc-unt-soft acc-unt-border" @click="showArchivModal = true">
-                <span>📝 Notiz-Archiv</span>
+            <button class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition acc-unt-soft acc-unt-border" @click="showArchivModal = true" title="Notiz-Archiv" aria-label="Notiz-Archiv">
+                <span class="foot-icon">📝</span><span class="foot-label">Notiz-Archiv</span>
             </button>
-            <button class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 s-panel-soft t1" @click="oeffneBibliothekZentral">
-                <span>📚 Planungsbibliothek</span>
+            <button class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 s-panel-soft t1" @click="oeffneBibliothekZentral" title="Planungsbibliothek" aria-label="Planungsbibliothek">
+                <span class="foot-icon">📚</span><span class="foot-label">Planungsbibliothek</span>
             </button>
-            <button class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 s-panel-soft t1" @click="showSchuelerModal = true">
-                <span>👥 Schülerkartei</span>
+            <button class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition acc-sch-soft acc-sch-border" style="border-width:1px;border-style:solid" @click="oeffneWochenplan" title="Wochenplan" aria-label="Wochenplan">
+                <span class="foot-icon">🗓️</span><span class="foot-label">Wochenplan</span>
             </button>
-            <button class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition acc-ter-soft acc-ter-border" @click="showAufgabenWocheModal = true">
-                <span>✅ Aufgaben</span>
+            <button class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 s-panel-soft t1" @click="showSchuelerModal = true" title="Schülerkartei" aria-label="Schülerkartei">
+                <span class="foot-icon">👥</span><span class="foot-label">Schülerkartei</span>
             </button>
-            <button class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 s-panel-soft t1" @click="showDokumenteModal = true; dokumenteSuchbegriff = ''">
-                <span>📎 Dokumente</span>
+            <button class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition acc-ter-soft acc-ter-border" @click="showAufgabenWocheModal = true" title="Aufgaben" aria-label="Aufgaben">
+                <span class="foot-icon">✅</span><span class="foot-label">Aufgaben</span>
+            </button>
+            <button class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 s-panel-soft t1" @click="showDokumenteModal = true; dokumenteSuchbegriff = ''" title="Dokumente" aria-label="Dokumente">
+                <span class="foot-icon">📎</span><span class="foot-label">Dokumente</span>
             </button>
         </div>
     </footer>
@@ -1095,7 +1134,7 @@
                         <div v-for="schueler in state.schueler.schuelerListe" :key="schueler.id" 
                              :class="['w-full p-2.5 rounded-lg text-xs font-semibold transition flex justify-between items-center cursor-pointer', selectedSchuelerId === schueler.id ? 'acc-sch-solid' : 't2 s-hover']"
                              @click="selectedSchuelerId = schueler.id">
-                            <span class="truncate pr-2">{{ schueler.name }} ({{ schueler.klasse }})</span>
+                            <span class="truncate pr-2">{{ schueler.name }} ({{ schueler.klasse }}<template v-if="schueler.gruppe"> · {{ schueler.gruppe }}</template>)</span>
                             
                             <button @click.stop="triggerDelete('schueler', schueler.id)" 
                                     :class="['px-1.5 py-0.5 rounded text-[10px] transition-all font-bold', isConfirming('schueler', schueler.id) ? 'confirm-step' : 'danger-soft']">
@@ -1110,6 +1149,7 @@
                         <div class="space-y-1.5">
                             <input type="text" v-model="neuerSchuelerName" placeholder="Name (z.B. Tim Becker)" class="w-full border border-gray-200 rounded bg-white p-1.5 text-xs focus:outline-none dark:border-gray-700 dark:bg-gray-800 s-card s-border">
                             <input type="text" v-model="neuerSchuelerKlasse" placeholder="Klasse (z.B. 4b)" class="w-full border border-gray-200 rounded bg-white p-1.5 text-xs focus:outline-none dark:border-gray-700 dark:bg-gray-800 s-card s-border">
+                            <input type="text" v-model="neuerSchuelerGruppe" list="wp-gruppen-liste" placeholder="Gruppe (optional, z.B. A)" class="w-full border border-gray-200 rounded bg-white p-1.5 text-xs focus:outline-none dark:border-gray-700 dark:bg-gray-800 s-card s-border">
                             <button @click="fuegeSchuelerHinzu" class="w-full py-1.5 rounded-lg font-bold text-xs transition acc-sch-solid">+ Hinzufügen</button>
                         </div>
                     </div>
@@ -1121,8 +1161,12 @@
                         <div class="flex justify-between items-start">
                             <div>
                                 <h4 class="text-lg font-bold text-gray-800 dark:text-gray-100 t1">{{ getSelectedSchueler.name }}</h4>
-                                <p class="text-xs text-gray-500 dark:text-gray-400 t2">Klasse {{ getSelectedSchueler.klasse }} • Digitale Schülerakte</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 t2">Klasse {{ getSelectedSchueler.klasse }}<template v-if="getSelectedSchueler.gruppe"> • Gruppe {{ getSelectedSchueler.gruppe }}</template> • Digitale Schülerakte</p>
                             </div>
+                            <button @click="oeffneWochenplanFuerSchueler(getSelectedSchueler)" class="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition acc-sch-soft acc-sch-border shrink-0" style="border-width:1px;border-style:solid" title="Zum zugeordneten Wochenplan">
+                                <span>🗓️ Wochenplan</span>
+                                <span v-if="wochenplaeneFuerSchueler(getSelectedSchueler).length" class="text-[9px] px-1.5 py-0.5 rounded-full acc-sch-solid">{{ wochenplaeneFuerSchueler(getSelectedSchueler).length }}</span>
+                            </button>
                         </div>
 
                         <div class="bg-gray-100 p-1 rounded-xl flex flex-wrap gap-1 text-xs dark:bg-gray-700 s-panel-soft">
@@ -1171,6 +1215,11 @@
             <div class="w-20 shrink-0">
                 <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1 dark:text-gray-400 t3">Klasse</label>
                 <input type="text" v-model="getSelectedSchueler.klasse" class="w-full rounded-lg px-2 py-1.5 text-xs focus:outline-none s-input acc-sch-ring">
+            </div>
+            <div class="shrink-0" style="width:9rem">
+                <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1 dark:text-gray-400 t3">Gruppe</label>
+                <input type="text" v-model="getSelectedSchueler.gruppe" list="wp-gruppen-liste" placeholder="z.B. A" class="w-full rounded-lg px-2 py-1.5 text-xs focus:outline-none s-input acc-sch-ring">
+                <datalist id="wp-gruppen-liste"><option v-for="g in alleGruppen" :key="g" :value="g"></option></datalist>
             </div>
             <div class="shrink-0" style="width:9.5rem">
                 <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1 dark:text-gray-400 t3">Geburtsdatum</label>
@@ -1966,6 +2015,174 @@
         </div>
     </div>
 
+    <!-- =====================================================================
+         WOCHENPLAN (NEU): Tabelle mit Faechern als Spalten und Aufgaben als
+         Zeilen, je Kalenderwoche, zugeordnet an Gruppen und/oder einzelne Kinder.
+         Steht bewusst NACH der Schuelerkartei im Markup, damit es sich beim
+         Oeffnen aus der Schuelerakte darueber legt.
+         ===================================================================== -->
+    <div v-if="showWochenplanModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200 dark:bg-gray-800 s-card">
+            <div class="acc-sch-solid px-5 py-4 flex justify-between items-center shrink-0">
+                <div>
+                    <h3 class="text-lg font-bold">🗓️ Wochenplan</h3>
+                    <p class="text-xs" style="color:rgba(255,255,255,0.8)">KW {{ getKalenderwoche(wpWoche) }} • {{ formatTagDatum(wpWoche) }}–{{ formatTagDatum(addDays(wpWoche, 4)) }}</p>
+                </div>
+                <button @click="schliesseWochenplan" class="modal-close transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+
+            <div class="flex-1 flex overflow-hidden">
+
+                <div class="w-1/3 border-r border-gray-200 bg-gray-50 flex flex-col overflow-y-auto custom-scroll p-4 dark:border-gray-700 dark:bg-gray-800 s-card-soft s-border" style="min-width:0">
+
+                    <div class="flex items-center gap-1 rounded-xl p-1 s-panel-soft shrink-0">
+                        <button @click="wpWocheVerschieben(-7)" class="p-1.5 rounded-lg transition s-hover" title="Vorherige Woche">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 t2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                        </button>
+                        <button @click="wpZurAktuellenWoche" class="flex-1 px-2 py-1 rounded-lg text-xs font-semibold shadow-xs whitespace-nowrap s-card acc-sch-text" title="Zur aktuellen Woche springen">
+                            KW {{ getKalenderwoche(wpWoche) }} • {{ formatTagDatum(wpWoche) }}–{{ formatTagDatum(addDays(wpWoche, 4)) }}
+                        </button>
+                        <button @click="wpWocheVerschieben(7)" class="p-1.5 rounded-lg transition s-hover" title="Nächste Woche">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 t2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                        </button>
+                    </div>
+
+                    <p v-if="wpHinweis" class="text-[11px] leading-snug rounded-lg p-2 acc-ter-soft shrink-0" style="margin-top:0.75rem">{{ wpHinweis }}</p>
+
+                    <div class="flex-1 space-y-1.5" style="margin-top:0.75rem">
+                        <span class="wp-label">Pläne dieser Woche</span>
+                        <div v-for="plan in wochenplaeneDerWoche" :key="plan.id" @click="waehleWochenplan(plan.id)"
+                             :class="['rounded-xl p-2.5 text-xs cursor-pointer transition flex items-start justify-between gap-2', wpAktivId === plan.id ? 'acc-sch-solid' : 's-card s-hover']">
+                            <div class="min-w-0">
+                                <p class="font-bold truncate">{{ plan.titel || 'Ohne Titel' }}</p>
+                                <p class="text-[10px] truncate" :class="wpAktivId === plan.id ? '' : 't3'" style="opacity:0.9">{{ wochenplanZuordnungText(plan) }}</p>
+                            </div>
+                            <button @click.stop="triggerDelete('wochenplan', plan.id)"
+                                    :class="['px-1.5 py-0.5 rounded text-[10px] font-bold transition-all shrink-0', isConfirming('wochenplan', plan.id) ? 'confirm-step' : 'danger-soft']">
+                                <span v-if="isConfirming('wochenplan', plan.id)">Sicher?</span>
+                                <span v-else>🗑️</span>
+                            </button>
+                        </div>
+                        <div v-if="wochenplaeneDerWoche.length === 0" class="text-center text-xs t3 py-6">Für diese Woche gibt es noch keinen Plan.</div>
+                    </div>
+
+                    <div class="pt-3 border-t border-gray-200 space-y-2 dark:border-gray-700 s-border shrink-0" style="margin-top:0.75rem">
+                        <span class="wp-label">Neuer Wochenplan</span>
+                        <input type="text" v-model="wpNeuTitel" @keyup.enter="legeWochenplanAn" placeholder="Titel (z.B. Lesegruppe A)" class="w-full rounded-lg p-2 text-xs focus:outline-none s-input acc-sch-ring">
+                        <select v-model="wpNeuWoche" class="w-full rounded-lg p-2 text-xs focus:outline-none s-input acc-sch-ring">
+                            <option v-for="w in wpWochenOptionen" :key="w" :value="w">KW {{ getKalenderwoche(w) }} • {{ formatTagDatum(w) }}–{{ formatTagDatum(addDays(w, 4)) }}</option>
+                        </select>
+                        <button @click="legeWochenplanAn" class="w-full py-2 rounded-lg text-xs font-bold transition acc-sch-solid">+ Anlegen</button>
+                    </div>
+                </div>
+
+                <div class="flex-1 min-w-0 overflow-y-auto custom-scroll p-5 space-y-4 bg-stone-50 dark:bg-gray-900 s-card-soft">
+
+                    <template v-if="activerWochenplan">
+
+                        <div class="s-card s-border rounded-2xl p-4 space-y-3" style="border-width:1px;border-style:solid">
+                            <div class="flex flex-wrap items-end gap-2">
+                                <div class="flex-1" style="min-width:160px">
+                                    <label class="wp-label">Titel</label>
+                                    <input type="text" v-model="activerWochenplan.titel" placeholder="z.B. Lesegruppe A" class="w-full rounded-lg px-2 py-1.5 text-sm focus:outline-none s-input acc-sch-ring">
+                                </div>
+                                <div class="shrink-0" style="width:13rem">
+                                    <label class="wp-label">Woche</label>
+                                    <select v-model="activerWochenplan.woche" @change="wpWoche = activerWochenplan.woche" class="w-full rounded-lg px-2 py-1.5 text-xs focus:outline-none s-input acc-sch-ring">
+                                        <option v-for="w in wpWochenOptionen" :key="w" :value="w">KW {{ getKalenderwoche(w) }} • {{ formatTagDatum(w) }}–{{ formatTagDatum(addDays(w, 4)) }}</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="s-card s-border rounded-2xl p-4 space-y-3" style="border-width:1px;border-style:solid">
+                            <h5 class="text-xs font-bold acc-sch-text uppercase tracking-wider">Zugeordnet an</h5>
+                            <div>
+                                <label class="wp-label">Gruppen</label>
+                                <div class="flex flex-wrap gap-1.5">
+                                    <button v-for="g in wpGruppenOptionen(activerWochenplan)" :key="g" @click="toggleWpGruppe(g)" :class="['wp-chip', wpHatGruppe(activerWochenplan, g) ? 'on' : '']">👥 {{ g }}</button>
+                                    <span v-if="wpGruppenOptionen(activerWochenplan).length === 0" class="text-[11px] t3">Noch keine Gruppen vergeben – die Gruppe trägst du im Personalbogen des Kindes ein.</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="wp-label">Einzelne Kinder</label>
+                                <div class="max-h-28 overflow-y-auto custom-scroll space-y-1 s-card-soft s-border-soft rounded-lg p-1.5" style="border-width:1px;border-style:solid">
+                                    <label v-for="s in state.schueler.schuelerListe" :key="s.id" class="flex items-center gap-2 px-1.5 py-1 rounded text-xs cursor-pointer s-hover">
+                                        <input type="checkbox" :checked="activerWochenplan.zuordnung.schuelerIds.includes(s.id)" @change="toggleWpSchueler(s.id)">
+                                        <span class="t1">{{ s.name }} ({{ s.klasse }}<template v-if="s.gruppe"> · {{ s.gruppe }}</template>)</span>
+                                    </label>
+                                    <div v-if="state.schueler.schuelerListe.length === 0" class="text-[11px] t3 p-1">Noch keine Kinder in der Schülerkartei.</div>
+                                </div>
+                            </div>
+                            <p class="text-[11px] t2">
+                                <template v-if="wpBetroffeneKinder(activerWochenplan).length">Gilt für {{ wpBetroffeneKinder(activerWochenplan).length }} Kind(er): {{ wpBetroffeneKinder(activerWochenplan).map(k => k.name).join(', ') }}</template>
+                                <template v-else>Noch keinem Kind zugeordnet.</template>
+                            </p>
+                        </div>
+
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center gap-2">
+                                <span class="wp-label" style="margin-bottom:0">Plan-Tabelle</span>
+                                <div class="flex gap-1.5">
+                                    <button @click="fuegeWpSpalteHinzu" class="px-3 py-1.5 rounded-lg text-xs font-bold transition acc-sch-soft">+ Fach</button>
+                                    <button @click="fuegeWpZeileHinzu" class="px-3 py-1.5 rounded-lg text-xs font-bold transition acc-sch-soft">+ Aufgabe</button>
+                                </div>
+                            </div>
+                            <div class="wp-table-wrap custom-scroll">
+                                <table class="wp-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="wp-rowhead"></th>
+                                            <th v-for="sp in activerWochenplan.spalten" :key="sp.id" class="wp-col">
+                                                <div class="flex items-center gap-1">
+                                                    <input type="text" v-model="sp.name" placeholder="Fach" class="flex-1 min-w-0 rounded-lg px-2 py-1.5 text-xs font-bold focus:outline-none s-input acc-sch-ring">
+                                                    <button @click="triggerDelete('wpSpalte', sp.id)"
+                                                            :class="['px-1.5 py-1 rounded text-[10px] font-bold transition-all shrink-0', isConfirming('wpSpalte', sp.id) ? 'confirm-step' : 'danger-soft']">
+                                                        <span v-if="isConfirming('wpSpalte', sp.id)">Sicher?</span>
+                                                        <span v-else>🗑️</span>
+                                                    </button>
+                                                </div>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(zeile, zi) in activerWochenplan.zeilen" :key="zeile.id">
+                                            <th class="wp-rowhead">
+                                                <input type="text" v-model="zeile.titel" :placeholder="'Aufgabe ' + (zi + 1)" class="w-full rounded-lg px-2 py-1.5 text-xs font-bold focus:outline-none s-input acc-sch-ring">
+                                                <button @click="triggerDelete('wpZeile', zeile.id)"
+                                                        :class="['w-full py-0.5 rounded text-[10px] font-bold transition-all', isConfirming('wpZeile', zeile.id) ? 'confirm-step' : 'danger-soft']" style="margin-top:0.25rem">
+                                                    <span v-if="isConfirming('wpZeile', zeile.id)">Sicher?</span>
+                                                    <span v-else>🗑️</span>
+                                                </button>
+                                            </th>
+                                            <td v-for="sp in activerWochenplan.spalten" :key="sp.id">
+                                                <textarea v-model="zeile.zellen[sp.id]" rows="3" class="wp-cell focus:outline-none s-input acc-sch-ring custom-scroll"></textarea>
+                                            </td>
+                                        </tr>
+                                        <tr v-if="activerWochenplan.zeilen.length === 0">
+                                            <td :colspan="activerWochenplan.spalten.length + 1" class="text-center text-xs t3" style="padding:1.5rem">Noch keine Aufgaben – mit „+ Aufgabe“ eine Zeile anlegen.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p v-if="activerWochenplan.spalten.length === 0" class="text-[11px] t3">Noch keine Fächer – mit „+ Fach“ eine Spalte anlegen.</p>
+                        </div>
+
+                    </template>
+
+                    <div v-else class="flex flex-col items-center justify-center text-xs text-center t2" style="padding:6rem 0">
+                        <span class="text-4xl mb-2">🗓️</span>
+                        Wähle links einen Plan aus,<br>
+                        oder lege unten einen neuen Wochenplan an.
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div v-if="showInfoModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200 dark:bg-gray-800 s-card">
 
@@ -2278,6 +2495,43 @@
         return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`;
     }
 
+    // =========================================================================
+    // WOCHENPLAN (NEU): Hilfsfunktionen auf Modulebene - muessen VOR loadData()
+    // verfuegbar sein, da loadData synchron beim Start laeuft.
+    // =========================================================================
+    function neueWpId(prefix) {
+        return prefix + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    }
+
+    function normalisiereGruppe(g) {
+        return String(g || "").trim().toLowerCase();
+    }
+
+    function normalisiereWochenplan(p) {
+        if (!p || typeof p !== 'object') return;
+        if (!p.id) p.id = neueWpId("wp");
+        if (typeof p.titel !== 'string') p.titel = "";
+        if (typeof p.woche !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(p.woche)) {
+            p.woche = getMontagDerWoche(toISODate(new Date()));
+        } else {
+            p.woche = getMontagDerWoche(p.woche);
+        }
+        if (!p.zuordnung || typeof p.zuordnung !== 'object') p.zuordnung = {};
+        if (!Array.isArray(p.zuordnung.schuelerIds)) p.zuordnung.schuelerIds = [];
+        if (!Array.isArray(p.zuordnung.gruppen)) p.zuordnung.gruppen = [];
+        if (!Array.isArray(p.spalten)) p.spalten = [];
+        if (!Array.isArray(p.zeilen)) p.zeilen = [];
+        p.spalten.forEach(s => {
+            if (!s.id) s.id = neueWpId("ws");
+            if (typeof s.name !== 'string') s.name = "";
+        });
+        p.zeilen.forEach(z => {
+            if (!z.id) z.id = neueWpId("wz");
+            if (typeof z.titel !== 'string') z.titel = "";
+            if (!z.zellen || typeof z.zellen !== 'object') z.zellen = {};
+        });
+    }
+
     function getKalenderwoche(isoDate) {
         const d = new Date(isoDate + "T00:00:00");
         d.setHours(0, 0, 0, 0);
@@ -2474,6 +2728,9 @@
                 // liegen in IndexedDB (Quelle 'datei') oder extern (Quelle 'link')
                 dokumente: [],
 
+                // SCHUBLADE 8: Wochenplaene (NEU)
+                wochenplaene: [],
+
                 ui: {
                     showSidebar: false,
                     showCompactNotesPanel: false,
@@ -2548,6 +2805,9 @@
                             if (!d.verknuepftMit.schuelerIds) d.verknuepftMit.schuelerIds = [];
                         });
 
+                        state.value.wochenplaene = Array.isArray(parsed.wochenplaene) ? parsed.wochenplaene : [];
+                        state.value.wochenplaene.forEach(normalisiereWochenplan);
+
                         state.value.schueler.schuelerListe.forEach(s => {
                             if (!s.geburtsdatum) s.geburtsdatum = "";
                             if (!s.lebenssituation) s.lebenssituation = "";
@@ -2556,6 +2816,7 @@
                             if (!s.foerderplaene) s.foerderplaene = [];
                             if (!s.ziele) s.ziele = [];
                             if (!s.gespraeche) s.gespraeche = [];
+                            if (typeof s.gruppe !== 'string') s.gruppe = "";
                         });
 
                         for (const key in state.value.stundenplan.daten) {
@@ -2625,7 +2886,8 @@
                     bibliothek: state.value.bibliothek,
                     archiv: state.value.archiv,
                     aufgaben: state.value.aufgaben,
-                    dokumente: state.value.dokumente
+                    dokumente: state.value.dokumente,
+                    wochenplaene: state.value.wochenplaene
                 });
 
                 if (isCapacitor) {
@@ -2984,6 +3246,7 @@
 
             const neuerSchuelerName = ref("");
             const neuerSchuelerKlasse = ref("");
+            const neuerSchuelerGruppe = ref("");
 
             const neueNote = ref({ fach: "", typ: "Klassenarbeit", titel: "", note: "", bemerkung: "", datum: toISODate(new Date()) });
             const neuerFoerderplan = ref({ titel: "", inhalt: "" });
@@ -3771,6 +4034,7 @@
                     id: neuId,
                     name: neuerSchuelerName.value.trim(),
                     klasse: klasse,
+                    gruppe: neuerSchuelerGruppe.value.trim(),
                     geburtsdatum: "",
                     kontaktdaten: "",
                     lebenssituation: "",
@@ -3783,6 +4047,7 @@
                 selectedSchuelerId.value = neuId;
                 neuerSchuelerName.value = "";
                 neuerSchuelerKlasse.value = "";
+                neuerSchuelerGruppe.value = "";
             };
 
             const fuegeNoteHinzu = () => {
@@ -4305,6 +4570,9 @@
                 if (type === 'schueler') {
                     state.value.schueler.schuelerListe = state.value.schueler.schuelerListe.filter(s => s.id !== id);
                     state.value.schueler.schuelerNotizen = state.value.schueler.schuelerNotizen.filter(n => n.schuelerId !== id);
+                    state.value.wochenplaene.forEach(p => {
+                        p.zuordnung.schuelerIds = p.zuordnung.schuelerIds.filter(sid => sid !== id);
+                    });
                     if (selectedSchuelerId.value === id) {
                         selectedSchuelerId.value = state.value.schueler.schuelerListe[0]?.id || "";
                     }
@@ -4366,6 +4634,16 @@
                     const idx = offeneZielAuswertungen.value.indexOf(id);
                     if (idx >= 0) offeneZielAuswertungen.value.splice(idx, 1);
                 }
+                else if (type === 'wochenplan') {
+                    state.value.wochenplaene = state.value.wochenplaene.filter(p => p.id !== id);
+                    if (wpAktivId.value === id) wpWaehleErstenPlanDerWoche();
+                }
+                else if (type === 'wpSpalte') {
+                    loescheWpSpalte(id);
+                }
+                else if (type === 'wpZeile') {
+                    loescheWpZeile(id);
+                }
                 else if (type === 'aufgabe') {
                     state.value.aufgaben = state.value.aufgaben.filter(a => a.id !== id);
                 }
@@ -4424,6 +4702,225 @@
                 activeSlotData.value.sketches = [];
             };
 
+
+            // =========================================================================
+            // WOCHENPLAN (NEU)
+            // Datenmodell: state.wochenplaene = [{
+            //   id, titel, woche (ISO-Datum des Montags),
+            //   zuordnung: { schuelerIds: [], gruppen: [] },   // Gruppen = freie Namen, klassenuebergreifend
+            //   spalten: [{ id, name }],                        // Faecher
+            //   zeilen:  [{ id, titel, zellen: { [spaltenId]: text } }]   // Aufgaben
+            // }]
+            // =========================================================================
+            const showWochenplanModal = ref(false);
+            const wpWoche = ref(aktuelleWoche.value);
+            const wpAktivId = ref("");
+            const wpNeuTitel = ref("");
+            const wpNeuWoche = ref(aktuelleWoche.value);
+            const wpNeuVorbelegung = ref(null);
+            const wpHinweis = ref("");
+
+            watch(wpWoche, (w) => { wpNeuWoche.value = w; });
+
+            const wochenplaeneDerWoche = computed(() =>
+                state.value.wochenplaene.filter(p => p.woche === wpWoche.value)
+            );
+            const activerWochenplan = computed(() =>
+                state.value.wochenplaene.find(p => p.id === wpAktivId.value) || null
+            );
+
+            // Alle waehlbaren Wochen: das ganze Schuljahr + jede Woche, die schon
+            // einen Plan hat + die gerade angezeigte/ausgewaehlte Woche.
+            const wpWochenOptionen = computed(() => {
+                const set = new Set();
+                let w = getMontagDerWoche(state.value.schuljahr.start);
+                const ende = state.value.schuljahr.ende;
+                let guard = 0;
+                while (w <= ende && guard < 80) {
+                    set.add(w);
+                    w = addDays(w, 7);
+                    guard++;
+                }
+                state.value.wochenplaene.forEach(p => set.add(p.woche));
+                set.add(wpWoche.value);
+                set.add(wpNeuWoche.value);
+                return [...set].sort();
+            });
+
+            const alleGruppen = computed(() => {
+                const seen = new Map();
+                state.value.schueler.schuelerListe.forEach(s => {
+                    const g = String(s.gruppe || "").trim();
+                    const key = normalisiereGruppe(g);
+                    if (g && !seen.has(key)) seen.set(key, g);
+                });
+                return [...seen.values()].sort((a, b) => a.localeCompare(b, 'de'));
+            });
+
+            const wpGruppenOptionen = (plan) => {
+                const liste = [...alleGruppen.value];
+                plan.zuordnung.gruppen.forEach(g => {
+                    if (!liste.some(x => normalisiereGruppe(x) === normalisiereGruppe(g))) liste.push(g);
+                });
+                return liste;
+            };
+
+            const wpHatGruppe = (plan, g) =>
+                plan.zuordnung.gruppen.some(x => normalisiereGruppe(x) === normalisiereGruppe(g));
+
+            const toggleWpGruppe = (g) => {
+                const p = activerWochenplan.value;
+                if (!p) return;
+                const idx = p.zuordnung.gruppen.findIndex(x => normalisiereGruppe(x) === normalisiereGruppe(g));
+                if (idx >= 0) p.zuordnung.gruppen.splice(idx, 1);
+                else p.zuordnung.gruppen.push(g);
+            };
+
+            const toggleWpSchueler = (id) => {
+                const p = activerWochenplan.value;
+                if (!p) return;
+                const idx = p.zuordnung.schuelerIds.indexOf(id);
+                if (idx >= 0) p.zuordnung.schuelerIds.splice(idx, 1);
+                else p.zuordnung.schuelerIds.push(id);
+            };
+
+            // Ein Plan gilt fuer ein Kind, wenn es direkt zugeordnet ist ODER seine
+            // Gruppe zugeordnet ist (Gross-/Kleinschreibung und Leerzeichen egal).
+            const wpGiltFuer = (plan, s) => {
+                if (plan.zuordnung.schuelerIds.includes(s.id)) return true;
+                const g = normalisiereGruppe(s.gruppe);
+                return !!g && plan.zuordnung.gruppen.some(x => normalisiereGruppe(x) === g);
+            };
+
+            const wpBetroffeneKinder = (plan) =>
+                state.value.schueler.schuelerListe.filter(s => wpGiltFuer(plan, s));
+
+            const wochenplaeneFuerSchueler = (s) =>
+                s ? state.value.wochenplaene.filter(p => wpGiltFuer(p, s)) : [];
+
+            const wochenplanZuordnungText = (plan) => {
+                const teile = [];
+                plan.zuordnung.gruppen.forEach(g => teile.push("👥 " + g));
+                plan.zuordnung.schuelerIds.forEach(id => {
+                    const s = state.value.schueler.schuelerListe.find(k => k.id === id);
+                    if (s) teile.push("👤 " + s.name);
+                });
+                return teile.length ? teile.join(" · ") : "Nicht zugeordnet";
+            };
+
+            const wpWaehleErstenPlanDerWoche = () => {
+                wpAktivId.value = (wochenplaeneDerWoche.value[0] || {}).id || "";
+            };
+
+            // Fussleisten-Button: oeffnet den Plan der im Kalender angezeigten Woche.
+            const oeffneWochenplan = () => {
+                wpWoche.value = aktuelleWoche.value;
+                wpNeuWoche.value = wpWoche.value;
+                wpNeuVorbelegung.value = null;
+                wpHinweis.value = "";
+                wpNeuTitel.value = "";
+                wpWaehleErstenPlanDerWoche();
+                showWochenplanModal.value = true;
+            };
+
+            const schliesseWochenplan = () => {
+                showWochenplanModal.value = false;
+                wpNeuVorbelegung.value = null;
+                wpHinweis.value = "";
+            };
+
+            const wpWocheVerschieben = (tage) => {
+                wpWoche.value = addDays(wpWoche.value, tage);
+                wpWaehleErstenPlanDerWoche();
+            };
+
+            const wpZurAktuellenWoche = () => {
+                wpWoche.value = getAktuelleSchulwoche(toISODate(new Date()));
+                wpWaehleErstenPlanDerWoche();
+            };
+
+            const waehleWochenplan = (id) => { wpAktivId.value = id; };
+
+            const legeWochenplanAn = () => {
+                const woche = getMontagDerWoche(wpNeuWoche.value || wpWoche.value);
+                const plan = {
+                    id: neueWpId("wp"),
+                    titel: wpNeuTitel.value.trim(),
+                    woche,
+                    zuordnung: {
+                        schuelerIds: wpNeuVorbelegung.value ? [...wpNeuVorbelegung.value.schuelerIds] : [],
+                        gruppen: []
+                    },
+                    spalten: [
+                        { id: neueWpId("ws"), name: "Deutsch" },
+                        { id: neueWpId("ws"), name: "Mathematik" }
+                    ],
+                    zeilen: [1, 2, 3].map(() => ({ id: neueWpId("wz"), titel: "", zellen: {} }))
+                };
+                state.value.wochenplaene.push(plan);
+                wpWoche.value = woche;
+                wpAktivId.value = plan.id;
+                wpNeuTitel.value = "";
+                wpNeuVorbelegung.value = null;
+                wpHinweis.value = "";
+            };
+
+            const fuegeWpSpalteHinzu = () => {
+                const p = activerWochenplan.value;
+                if (!p) return;
+                p.spalten.push({ id: neueWpId("ws"), name: "" });
+            };
+
+            const fuegeWpZeileHinzu = () => {
+                const p = activerWochenplan.value;
+                if (!p) return;
+                p.zeilen.push({ id: neueWpId("wz"), titel: "", zellen: {} });
+            };
+
+            const loescheWpSpalte = (id) => {
+                const p = activerWochenplan.value;
+                if (!p) return;
+                p.spalten = p.spalten.filter(s => s.id !== id);
+                p.zeilen.forEach(z => { delete z.zellen[id]; });
+            };
+
+            const loescheWpZeile = (id) => {
+                const p = activerWochenplan.value;
+                if (!p) return;
+                p.zeilen = p.zeilen.filter(z => z.id !== id);
+            };
+
+            // Button in der Schuelerakte: fuehrt zum zugeordneten Plan (Woche aus dem
+            // Kalender bevorzugt, sonst der zeitlich naechste). Gibt es keinen, oeffnet
+            // sich das Modul mit vorbelegtem Kind im "Neuer Wochenplan"-Formular.
+            const oeffneWochenplanFuerSchueler = (s) => {
+                if (!s) return;
+                const plaene = wochenplaeneFuerSchueler(s);
+                const bezug = aktuelleWoche.value;
+                let ziel = plaene.find(p => p.woche === bezug) || null;
+                if (!ziel && plaene.length) {
+                    const bezugMs = new Date(bezug + "T00:00:00").getTime();
+                    ziel = [...plaene].sort((a, b) =>
+                        Math.abs(new Date(a.woche + "T00:00:00").getTime() - bezugMs) -
+                        Math.abs(new Date(b.woche + "T00:00:00").getTime() - bezugMs)
+                    )[0];
+                }
+                wpNeuVorbelegung.value = null;
+                wpHinweis.value = "";
+                wpNeuTitel.value = "";
+                if (ziel) {
+                    wpWoche.value = ziel.woche;
+                    wpAktivId.value = ziel.id;
+                } else {
+                    wpWoche.value = bezug;
+                    wpAktivId.value = "";
+                    wpNeuVorbelegung.value = { schuelerIds: [s.id] };
+                    wpNeuTitel.value = s.name;
+                    wpHinweis.value = `Für ${s.name} gibt es noch keinen Wochenplan. Unten kannst du einen anlegen – das Kind ist dann schon zugeordnet.`;
+                }
+                wpNeuWoche.value = wpWoche.value;
+                showWochenplanModal.value = true;
+            };
 
             const exportData = async () => {
                 const isCapacitor = typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Filesystem;
@@ -4496,6 +4993,8 @@
                             state.value.archiv = parsed.archiv || state.value.archiv;
                             state.value.aufgaben = Array.isArray(parsed.aufgaben) ? parsed.aufgaben : [];
                             state.value.dokumente = Array.isArray(parsed.dokumente) ? parsed.dokumente : [];
+                            state.value.wochenplaene = Array.isArray(parsed.wochenplaene) ? parsed.wochenplaene : [];
+                            state.value.wochenplaene.forEach(normalisiereWochenplan);
                             state.value.dokumente.forEach(d => {
                                 if (!d.verknuepftMit) d.verknuepftMit = { schuelerIds: [], planungId: null, stundenSlot: null };
                                 if (!d.verknuepftMit.schuelerIds) d.verknuepftMit.schuelerIds = [];
@@ -4741,7 +5240,35 @@
                 startDraw,
                 moveDraw,
                 endDraw,
-                clearCanvas
+                clearCanvas,
+
+                neuerSchuelerGruppe,
+                showWochenplanModal,
+                wpWoche,
+                wpAktivId,
+                wpNeuTitel,
+                wpNeuWoche,
+                wpHinweis,
+                wochenplaeneDerWoche,
+                activerWochenplan,
+                wpWochenOptionen,
+                alleGruppen,
+                wpGruppenOptionen,
+                wpHatGruppe,
+                toggleWpGruppe,
+                toggleWpSchueler,
+                wpBetroffeneKinder,
+                wochenplaeneFuerSchueler,
+                wochenplanZuordnungText,
+                oeffneWochenplan,
+                schliesseWochenplan,
+                wpWocheVerschieben,
+                wpZurAktuellenWoche,
+                waehleWochenplan,
+                legeWochenplanAn,
+                fuegeWpSpalteHinzu,
+                fuegeWpZeileHinzu,
+                oeffneWochenplanFuerSchueler
             };
         }
     }).mount('#app');
