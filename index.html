@@ -435,7 +435,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600 dark:text-gray-300 t2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
                 </button>
                 <button @click="springeZuHeute" class="px-3 py-1 rounded-lg text-xs font-semibold shadow-xs whitespace-nowrap s-card acc-unt-text" title="Zur aktuellen Woche springen">
-                    KW {{ getKalenderwoche(aktuelleWoche) }} • {{ formatTagDatum(aktuelleWoche) }}–{{ formatTagDatum(addDays(aktuelleWoche, 4)) }}
+                    KW {{ getKalenderwoche(aktuelleWoche) }}{{ schulwocheTeil(aktuelleWoche) }} • {{ formatTagDatum(aktuelleWoche) }}–{{ formatTagDatum(addDays(aktuelleWoche, 4)) }}
                 </button>
                 <button @click="wocheVorOderZurueck(7)" class="p-1.5 hover:bg-white rounded-lg transition dark:hover:bg-gray-600" title="Nächste Woche">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600 dark:text-gray-300 t2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
@@ -917,7 +917,7 @@
             <div class="acc-ter-solid px-5 py-4 flex justify-between items-center shrink-0">
                 <div>
                     <h3 class="text-base font-bold">✅ Aufgaben dieser Woche</h3>
-                    <p class="text-xs" style="color:rgba(255,255,255,0.8)">KW {{ getKalenderwoche(aktuelleWoche) }} • {{ formatTagDatum(aktuelleWoche) }}–{{ formatTagDatum(addDays(aktuelleWoche, 4)) }}</p>
+                    <p class="text-xs" style="color:rgba(255,255,255,0.8)">KW {{ getKalenderwoche(aktuelleWoche) }}{{ schulwocheTeil(aktuelleWoche, true) }} • {{ formatTagDatum(aktuelleWoche) }}–{{ formatTagDatum(addDays(aktuelleWoche, 4)) }}</p>
                 </div>
                 <button @click="showAufgabenWocheModal = false" class="modal-close transition">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -2026,7 +2026,7 @@
             <div class="acc-sch-solid px-5 py-4 flex justify-between items-center shrink-0">
                 <div>
                     <h3 class="text-lg font-bold">🗓️ Wochenplan</h3>
-                    <p class="text-xs" style="color:rgba(255,255,255,0.8)">KW {{ getKalenderwoche(wpWoche) }} • {{ formatTagDatum(wpWoche) }}–{{ formatTagDatum(addDays(wpWoche, 4)) }}</p>
+                    <p class="text-xs" style="color:rgba(255,255,255,0.8)">KW {{ getKalenderwoche(wpWoche) }}{{ schulwocheTeil(wpWoche, true) }} • {{ formatTagDatum(wpWoche) }}–{{ formatTagDatum(addDays(wpWoche, 4)) }}</p>
                 </div>
                 <button @click="schliesseWochenplan" class="modal-close transition">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -2042,7 +2042,7 @@
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 t2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
                         </button>
                         <button @click="wpZurAktuellenWoche" class="flex-1 px-2 py-1 rounded-lg text-xs font-semibold shadow-xs whitespace-nowrap s-card acc-sch-text" title="Zur aktuellen Woche springen">
-                            KW {{ getKalenderwoche(wpWoche) }} • {{ formatTagDatum(wpWoche) }}–{{ formatTagDatum(addDays(wpWoche, 4)) }}
+                            KW {{ getKalenderwoche(wpWoche) }}{{ schulwocheTeil(wpWoche) }} • {{ formatTagDatum(wpWoche) }}–{{ formatTagDatum(addDays(wpWoche, 4)) }}
                         </button>
                         <button @click="wpWocheVerschieben(7)" class="p-1.5 rounded-lg transition s-hover" title="Nächste Woche">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 t2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
@@ -2072,7 +2072,7 @@
                         <span class="wp-label">Neuer Wochenplan</span>
                         <input type="text" v-model="wpNeuTitel" @keyup.enter="legeWochenplanAn" placeholder="Titel (z.B. Lesegruppe A)" class="w-full rounded-lg p-2 text-xs focus:outline-none s-input acc-sch-ring">
                         <select v-model="wpNeuWoche" class="w-full rounded-lg p-2 text-xs focus:outline-none s-input acc-sch-ring">
-                            <option v-for="w in wpWochenOptionen" :key="w" :value="w">KW {{ getKalenderwoche(w) }} • {{ formatTagDatum(w) }}–{{ formatTagDatum(addDays(w, 4)) }}</option>
+                            <option v-for="w in wpWochenOptionen" :key="w" :value="w">KW {{ getKalenderwoche(w) }}{{ schulwocheTeil(w) }} • {{ formatTagDatum(w) }}–{{ formatTagDatum(addDays(w, 4)) }}</option>
                         </select>
                         <button @click="legeWochenplanAn" class="w-full py-2 rounded-lg text-xs font-bold transition acc-sch-solid">+ Anlegen</button>
                     </div>
@@ -2091,7 +2091,7 @@
                                 <div class="shrink-0" style="width:13rem">
                                     <label class="wp-label">Woche</label>
                                     <select v-model="activerWochenplan.woche" @change="wpWoche = activerWochenplan.woche" class="w-full rounded-lg px-2 py-1.5 text-xs focus:outline-none s-input acc-sch-ring">
-                                        <option v-for="w in wpWochenOptionen" :key="w" :value="w">KW {{ getKalenderwoche(w) }} • {{ formatTagDatum(w) }}–{{ formatTagDatum(addDays(w, 4)) }}</option>
+                                        <option v-for="w in wpWochenOptionen" :key="w" :value="w">KW {{ getKalenderwoche(w) }}{{ schulwocheTeil(w) }} • {{ formatTagDatum(w) }}–{{ formatTagDatum(addDays(w, 4)) }}</option>
                                     </select>
                                 </div>
                             </div>
@@ -2530,6 +2530,42 @@
             if (typeof z.titel !== 'string') z.titel = "";
             if (!z.zellen || typeof z.zellen !== 'object') z.zellen = {};
         });
+    }
+
+    // =========================================================================
+    // SCHULWOCHEN (NEU): Zaehlung der Schulwochen im Schuljahr.
+    // Regeln:
+    //  - Gezaehlt wird ab der Woche, in die der Schuljahresbeginn faellt.
+    //  - Eine Woche ist eine Schulwoche, wenn sie mindestens einen Schultag hat:
+    //    Mo-Fr, innerhalb von Schuljahresbeginn..-ende und NICHT in den Ferien.
+    //  - Wochen komplett in den Ferien zaehlen nicht (Wert 0 = Ferienwoche).
+    //  - Teilweise Ferienwochen (z.B. Mo/Di Schule, Rest Ferien) zaehlen mit.
+    //  - Wochen ausserhalb des Schuljahres sind nicht in der Map (keine Zahl).
+    // Liefert Map: Montag (ISO) -> Schulwochen-Nummer (oder 0 bei Ferienwoche).
+    // =========================================================================
+    function berechneSchulwochen(schuljahr, ferien) {
+        const map = new Map();
+        const iso = /^\d{4}-\d{2}-\d{2}$/;
+        const start = schuljahr && schuljahr.start;
+        const ende = schuljahr && schuljahr.ende;
+        if (!iso.test(start || "") || !iso.test(ende || "") || start > ende) return map;
+        const liste = Array.isArray(ferien) ? ferien : [];
+        const inFerien = (tag) => liste.some(f => f && f.von && f.bis && tag >= f.von && tag <= f.bis);
+        let montag = getMontagDerWoche(start);
+        let nr = 0;
+        let guard = 0;
+        while (montag <= ende && guard < 120) {
+            let hatSchultag = false;
+            for (let i = 0; i < 5; i++) {
+                const tag = addDays(montag, i);
+                if (tag >= start && tag <= ende && !inFerien(tag)) { hatSchultag = true; break; }
+            }
+            if (hatSchultag) { nr++; map.set(montag, nr); }
+            else { map.set(montag, 0); }
+            montag = addDays(montag, 7);
+            guard++;
+        }
+        return map;
     }
 
     function getKalenderwoche(isoDate) {
@@ -2981,6 +3017,18 @@
 
             const getFerienAm = (isoDate) => {
                 return state.value.ferien.find(f => isoDate >= f.von && isoDate <= f.bis) || null;
+            };
+
+            // Schulwochen (NEU): rechnet sich automatisch neu, sobald Ferien oder
+            // Schuljahr geaendert werden.
+            const schulwochenMap = computed(() => berechneSchulwochen(state.value.schuljahr, state.value.ferien));
+            // Liefert den Anzeige-Teil inkl. Trennpunkt, z.B. " • SW 8", " • Ferien" oder "".
+            // lang=true: "Schulwoche 8" / "Ferienwoche" (fuer breite Kopfzeilen).
+            const schulwocheTeil = (isoDate, lang) => {
+                const v = schulwochenMap.value.get(getMontagDerWoche(isoDate));
+                if (v === undefined) return "";
+                if (v === 0) return lang ? " • Ferienwoche" : " • Ferien";
+                return (lang ? " • Schulwoche " : " • SW ") + v;
             };
 
             const wochenTage = computed(() => {
@@ -5054,6 +5102,7 @@
                 formatTagLangmitDatum,
                 formatDatumLang,
                 getKalenderwoche,
+                schulwocheTeil,
                 addDays,
 
                 farbpalette,
