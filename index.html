@@ -371,6 +371,16 @@
         }
 
         /* ===================================================================
+           TEXT MARKIEREN/KOPIEREN: Frueher stand am <body> "select-none" und hat
+           die Auswahl in der ganzen App gesperrt. Jetzt ist ueberall Text
+           markierbar. Nur die Bedienleisten (Kopf-/Fussleiste, Schliessen-Kreuz)
+           bleiben unmarkierbar, damit schnelles Doppeltippen keine blaue
+           Markierung ausloest. Eingabefelder sind immer markierbar.
+           =================================================================== */
+        header button, footer button, .modal-close { -webkit-user-select: none; user-select: none; }
+        input, textarea, select { -webkit-user-select: text; user-select: text; }
+
+        /* ===================================================================
            FUSSLEISTE: Platzsparmodus (NEU, mit dem Wochenplan-Button)
            - Unter 1260px Breite verschwindet der Infotext links.
            - Im Hochformat (oder unter 1005px) entfallen die Beschriftungen,
@@ -407,7 +417,7 @@
         .wp-label { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-2); margin-bottom: 0.25rem; }
     </style>
 </head>
-<body class="overflow-hidden select-none">
+<body class="overflow-hidden">
 
 <div id="app" class="h-screen w-screen flex flex-col justify-between">
     
@@ -2082,6 +2092,19 @@
 
                     <template v-if="activerWochenplan">
 
+                        <!-- Kopfzeile: immer sichtbar, klappt Titel/Woche/Zuordnung ein und aus -->
+                        <div class="s-card s-border rounded-2xl" style="border-width:1px;border-style:solid">
+                            <button @click="wpEinstellungenOffen = !wpEinstellungenOffen" class="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left">
+                                <span class="min-w-0">
+                                    <span class="block text-sm font-bold t1 truncate">{{ activerWochenplan.titel || 'Ohne Titel' }}</span>
+                                    <span class="block text-[11px] t2 truncate">KW {{ getKalenderwoche(activerWochenplan.woche) }}{{ schulwocheTeil(activerWochenplan.woche) }} • {{ formatTagDatum(activerWochenplan.woche) }}–{{ formatTagDatum(addDays(activerWochenplan.woche, 4)) }} · {{ wochenplanZuordnungText(activerWochenplan) }}</span>
+                                </span>
+                                <span class="text-xs font-bold acc-sch-text shrink-0">{{ wpEinstellungenOffen ? '▾ Einklappen' : '▸ Einstellungen' }}</span>
+                            </button>
+                        </div>
+
+                        <div v-show="wpEinstellungenOffen" class="space-y-4">
+
                         <div class="s-card s-border rounded-2xl p-4 space-y-3" style="border-width:1px;border-style:solid">
                             <div class="flex flex-wrap items-end gap-2">
                                 <div class="flex-1" style="min-width:160px">
@@ -2120,6 +2143,8 @@
                                 <template v-if="wpBetroffeneKinder(activerWochenplan).length">Gilt für {{ wpBetroffeneKinder(activerWochenplan).length }} Kind(er): {{ wpBetroffeneKinder(activerWochenplan).map(k => k.name).join(', ') }}</template>
                                 <template v-else>Noch keinem Kind zugeordnet.</template>
                             </p>
+                        </div>
+
                         </div>
 
                         <div class="space-y-2">
@@ -4766,6 +4791,7 @@
             const wpNeuTitel = ref("");
             const wpNeuWoche = ref(aktuelleWoche.value);
             const wpNeuVorbelegung = ref(null);
+            const wpEinstellungenOffen = ref(true);   // Titel/Woche/Zuordnung ein-/ausklappbar
             const wpHinweis = ref("");
 
             watch(wpWoche, (w) => { wpNeuWoche.value = w; });
@@ -5298,6 +5324,7 @@
                 wpNeuTitel,
                 wpNeuWoche,
                 wpHinweis,
+                wpEinstellungenOffen,
                 wochenplaeneDerWoche,
                 activerWochenplan,
                 wpWochenOptionen,
